@@ -3,6 +3,8 @@ import * as firestore from "firebase-admin/firestore";
 import * as functions from "firebase-functions";
 import {v4 as uuidv4} from "uuid";
 
+import * as log from "./EventLog";
+
 // SOLAR ARRAY USAGE EXAMPLES
 
 // curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/newSolarArray\?maxW\=6800
@@ -35,6 +37,7 @@ export const newSolarArray = functions.https.onRequest(async (request, response)
   }
   const id = await SolarArray.create();
   await SolarArray.update(id, {id: id, maxW: maxW});
+  await log.EventLog.log(`CREATED new solar array with ID ${id} and max power ${maxW} W`);
   response.send(await SolarArray.get(id));
 });
 
@@ -77,6 +80,7 @@ export const setActiveSolarPower = functions.https.onRequest(async (request, res
 
   const solarArray = await SolarArray.get(request.query.id as string);
   const newPower = Math.min(solarArray.maxW, Math.max(0, activeW));
+  await log.EventLog.log(`SET solar array ${solarArray.id}, power ${newPower} W`);
   await SolarArray.update(solarArray.id, {activeW: newPower});
   response.send({
     activeW: newPower,
@@ -130,36 +134,43 @@ export const takeSolarPower = functions.https.onRequest(async (request, response
   // Calculate new values.
   const newSolarToken = uuidv4();
   const now = firestore.Timestamp.now();
+  const connectionTimeSeconds = now.seconds;
   const expireDurationSeconds = 5 * 60;
-  const newExpireTimeSeconds = now.seconds + expireDurationSeconds;
+  const newExpireTimeSeconds = connectionTimeSeconds + expireDurationSeconds;
 
   // Calculate potential energy delivered.
   const solarArray = await SolarArray.get(request.query.id as string);
-  const powerDurationHours = (now.seconds - solarArray.connectionTimeSeconds) / (60.0 * 60.0);
+  const powerDurationHours = (connectionTimeSeconds - solarArray.connectionTimeSeconds) / (60.0 * 60.0);
   const activeW = (!solarArray.activeW) ? 0 : solarArray.activeW;
   let energyWh = activeW * powerDurationHours;
   let note = "";
 
   // Constrain energy delivered.
-  if (now.seconds > solarArray.expireTimeUtcSeconds) {
+  const providedToken = request.query.solarToken;
+  const oldToken = solarArray.solarToken;
+  if (connectionTimeSeconds > solarArray.expireTimeUtcSeconds) {
     energyWh = 0; // Expired.
     note = "Disconnected. Connection expired.";
   }
-  if (!solarArray.solarToken) {
+  if (!oldToken) {
     energyWh = 0; // No old token.
     note = "Turning on solar array (array was not online)";
-  } else if (!request.query.solarToken) {
+  } else if (!providedToken) {
     energyWh = 0; // No token provided.
     note = "New solar array connection (no token)";
-  } else if (request.query.solarToken != solarArray.solarToken) {
+  } else if (providedToken != oldToken) {
     energyWh = 0; // Mismatched token.
     note = "Bad solar array connection (wrong token)";
   }
   energyWh = Math.min(energyWh, maxWh);
 
+  await log.EventLog.log(`TAKE solar array ${solarArray.id}, energy ${energyWh} Wh, ` +
+    `power ${activeW} W, duration ${powerDurationHours} h, ` +
+    `provided token ${providedToken}, old token ${oldToken}, new token ${newSolarToken}, ` +
+    `connection time ${connectionTimeSeconds} s, expire time ${newExpireTimeSeconds} s`);
   await SolarArray.update(solarArray.id, {
     solarToken: newSolarToken,
-    connectionTimeSeconds: now.seconds,
+    connectionTimeSeconds: connectionTimeSeconds,
     expireTimeUtcSeconds: newExpireTimeSeconds,
   });
   response.send({
