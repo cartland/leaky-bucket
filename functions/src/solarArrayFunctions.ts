@@ -13,10 +13,14 @@ import * as log from "./EventLog";
 // curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/getSolarArray\?id\=rJnbBUBaVJ4lFUsqRnki
 // {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki"}
 
-// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActiveSolarPower\?id\=rJnbBUBaVJ4lFUsqRnki\&activeW\=4000
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActiveSolarPower\?id\=rJnbBUBaVJ4lFUsqRnki\&activeW\=4000
 // {"activeW": 4000, "solarArray": {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 4000} }
 
 // curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takeSolarPower\?id\=rJnbBUBaVJ4lFUsqRnki\&maxWh\=4000\&solarToken=\A
+
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/connectBatteryToSolarArray\?solarId\=rJnbBUBaVJ4lFUsqRnki\&batteryId\=abcd
+//
+
 
 /**
  * Create a new solar array with maximum power capacity. Generates a new ID.
@@ -180,6 +184,34 @@ export const takeSolarPower = functions.https.onRequest(async (request, response
     powerDurationHours: powerDurationHours,
     activeW: activeW,
     note: note,
+    solarArray: await SolarArray.get(solarArray.id),
+  });
+});
+
+
+/**
+ * Connect battery to solar array.
+ */
+export const connectBatteryToSolarArray = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  if (!request.query.solarId) {
+    response.status(404).send({error: "Missing parameter 'solarId'"});
+    return;
+  }
+  if (!request.query.batteryId) {
+    response.status(404).send({error: "Missing parameter 'batteryId'"});
+    return;
+  }
+
+  const solarArray = await SolarArray.get(request.query.solarId as string);
+  const batteryId = request.query.batteryId as string;
+  await log.EventLog.log(`CONNECT solar array ${solarArray.id} to battery ${batteryId}`);
+  await SolarArray.update(solarArray.id, {connectedBatteryId: batteryId});
+  response.send({
+    connectedBatteryId: batteryId,
     solarArray: await SolarArray.get(solarArray.id),
   });
 });

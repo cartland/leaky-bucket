@@ -13,19 +13,19 @@ firebase.initializeApp();
 // curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/getBattery\?id\=NBi0dEvaSBinEFnb1eAy
 // {"WhCapacity": 75000, "id": "NBi0dEvaSBinEFnb1eAy"}
 
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/chargeBattery\?id\=NBi0dEvaSBinEFnb1eAy\&addWh\=47
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/chargeBattery\?addWh\=47\&id\=NBi0dEvaSBinEFnb1eAy
 // {"WhChange": 47, "battery":
 // {"WhCapacity": 75000, "id": "NBi0dEvaSBinEFnb1eAy", "WhCharge": 47} }
 
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/chargeBattery\?id\=NBi0dEvaSBinEFnb1eAy\&addWh\=47
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/chargeBattery\?addWh\=47\&id\=NBi0dEvaSBinEFnb1eAy
 // {"WhChange": 47, "battery":
 // {"WhCapacity": 75000, "id": "NBi0dEvaSBinEFnb1eAy", "WhCharge": 94} }
 
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/dischargeBattery\?id\=NBi0dEvaSBinEFnb1eAy\&consumeWh\=83
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/dischargeBattery\?consumeWh\=83\&id\=NBi0dEvaSBinEFnb1eAy
 // {"WhChange": -83, "battery":
 // {"WhCapacity": 75000, "id": "NBi0dEvaSBinEFnb1eAy", "WhCharge": 11} }
 
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/dischargeBattery\?id\=NBi0dEvaSBinEFnb1eAy\&consumeWh\=83
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/dischargeBattery\?consumeWh\=83\&id\=NBi0dEvaSBinEFnb1eAy
 // {"WhChange": -11, "battery":
 // {"WhCapacity": 75000, "id": "NBi0dEvaSBinEFnb1eAy", "WhCharge": 0} }
 
@@ -53,10 +53,10 @@ export const dischargeBattery = batteryFunctions.dischargeBattery;
 // curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/getSolarArray\?id\=rJnbBUBaVJ4lFUsqRnki
 // {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki"}
 
-// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActiveSolarPower\?id\=rJnbBUBaVJ4lFUsqRnki\&activeW\=4000
+// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActiveSolarPower\?activeW\=4000\&id\=rJnbBUBaVJ4lFUsqRnki
 // {"activeW": 4000, "solarArray": {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 4000} }
 
-// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takeSolarPower\?id\=rJnbBUBaVJ4lFUsqRnki\&maxWh\=4000\&solarToken=\A
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takeSolarPower\?maxWh\=4000\&id\=rJnbBUBaVJ4lFUsqRnki\&solarToken=\A
 
 /**
  * Create a new solar array with maximum power capacity. Generates a new ID.
@@ -93,3 +93,10 @@ export const setActiveSolarPower = solarArrayFunctions.setActiveSolarPower;
  * -> Wh: 0, Token: D, Expires: 5 minutes
  */
 export const takeSolarPower = solarArrayFunctions.takeSolarPower;
+
+/**
+ * Connect a battery to a solar array.
+ *
+ * A solar array can only be connected to 1 battery at a time.
+ */
+export const connectBatteryToSolarArray = solarArrayFunctions.connectBatteryToSolarArray;
