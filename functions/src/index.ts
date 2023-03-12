@@ -1,4 +1,5 @@
 import * as firebase from "firebase-admin";
+import * as functions from "firebase-functions";
 
 import * as batteryFunctions from "./batteryFunctions";
 import * as solarArrayFunctions from "./solarArrayFunctions";
@@ -53,10 +54,13 @@ export const dischargeBattery = batteryFunctions.dischargeBattery;
 // curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/getSolarArray\?id\=rJnbBUBaVJ4lFUsqRnki
 // {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki"}
 
-// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActiveSolarPower\?activeW\=4000\&id\=rJnbBUBaVJ4lFUsqRnki
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActiveSolarPower\?activeW\=4000\&id\=NA5MiLuRJPbaIw954JEJ
 // {"activeW": 4000, "solarArray": {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 4000} }
 
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takeSolarPower\?maxWh\=4000\&id\=rJnbBUBaVJ4lFUsqRnki\&solarToken=\A
+// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takeSolarPower\?id\=rJnbBUBaVJ4lFUsqRnki\&maxWh\=4000\&solarToken=\A
+
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/connectBatteryToSolarArray\?solarId\=rJnbBUBaVJ4lFUsqRnki\&batteryId\=abcd
+//
 
 /**
  * Create a new solar array with maximum power capacity. Generates a new ID.
@@ -92,7 +96,7 @@ export const setActiveSolarPower = solarArrayFunctions.setActiveSolarPower;
  * takeSolarPower(C)
  * -> Wh: 0, Token: D, Expires: 5 minutes
  */
-export const takeSolarPower = solarArrayFunctions.takeSolarPower;
+export const takeSolarPower = solarArrayFunctions.httpTakeSolarPower;
 
 /**
  * Connect a battery to a solar array.
@@ -100,3 +104,19 @@ export const takeSolarPower = solarArrayFunctions.takeSolarPower;
  * A solar array can only be connected to 1 battery at a time.
  */
 export const connectBatteryToSolarArray = solarArrayFunctions.connectBatteryToSolarArray;
+
+export const chargeBatteriesWithSolarArrays = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  const success = await solarArrayFunctions.chargeBatteries();
+  response.send({success: success});
+});
+
+export const scheduleChargeBatteriesWithSolarArrays = functions.pubsub.
+  schedule("every 5 minutes").onRun(async (_) => {
+    const success = await solarArrayFunctions.chargeBatteries();
+    console.log(`chargeBatteries sucess: ${success}`);
+    return null;
+  });

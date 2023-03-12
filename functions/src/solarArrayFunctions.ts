@@ -3,24 +3,9 @@ import * as firestore from "firebase-admin/firestore";
 import * as functions from "firebase-functions";
 import {v4 as uuidv4} from "uuid";
 
-import * as log from "./EventLog";
-
-// SOLAR ARRAY USAGE EXAMPLES
-
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/newSolarArray\?maxW\=6800
-// {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki"}
-
-// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/getSolarArray\?id\=rJnbBUBaVJ4lFUsqRnki
-// {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki"}
-
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActiveSolarPower\?id\=rJnbBUBaVJ4lFUsqRnki\&activeW\=4000
-// {"activeW": 4000, "solarArray": {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 4000} }
-
-// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takeSolarPower\?id\=rJnbBUBaVJ4lFUsqRnki\&maxWh\=4000\&solarToken=\A
-
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/connectBatteryToSolarArray\?solarId\=rJnbBUBaVJ4lFUsqRnki\&batteryId\=abcd
-//
-
+import {Battery} from "./Battery";
+import {EventLog} from "./EventLog";
+import {SolarArray} from "./SolarArray";
 
 /**
  * Create a new solar array with maximum power capacity. Generates a new ID.
@@ -41,7 +26,7 @@ export const newSolarArray = functions.https.onRequest(async (request, response)
   }
   const id = await SolarArray.create();
   await SolarArray.update(id, {id: id, maxW: maxW});
-  await log.EventLog.log(`CREATED new solar array with ID ${id} and max power ${maxW} W`);
+  await EventLog.log(`CREATED new solar array with ID ${id} and max power ${maxW} W`);
   response.send(await SolarArray.get(id));
 });
 
@@ -84,7 +69,7 @@ export const setActiveSolarPower = functions.https.onRequest(async (request, res
 
   const solarArray = await SolarArray.get(request.query.id as string);
   const newPower = Math.min(solarArray.maxW, Math.max(0, activeW));
-  await log.EventLog.log(`SET solar array ${solarArray.id}, power ${newPower} W`);
+  await EventLog.log(`SET solar array ${solarArray.id}, power ${newPower} W`);
   await SolarArray.update(solarArray.id, {activeW: newPower});
   response.send({
     activeW: newPower,
@@ -103,54 +88,65 @@ export const setActiveSolarPower = functions.https.onRequest(async (request, res
  * Energy (Wh) = Power (W) * Time Since Token Creation (h)
  *
  * takeSolarPower(no token)
- * -> Wh: 0, Token: A, Expires: 5 minutes
+ * -> Wh: 0, Token: A, Expires: 10 minutes
  * takeSolarPower(A)
- * -> Wh: 14, Token: B, Expires: 5 minutes
+ * -> Wh: 14, Token: B, Expires: 10 minutes
  * takeSolarPower(B)
- * -> Wh: 18, Token: C, Expires: 5 minutes
+ * -> Wh: 18, Token: C, Expires: 10 minutes
  * [Wait past expiration]
  * takeSolarPower(C)
- * -> Wh: 0, Token: D, Expires: 5 minutes
+ * -> Wh: 0, Token: D, Expires: 10 minutes
  */
-export const takeSolarPower = functions.https.onRequest(async (request, response) => {
+export const httpTakeSolarPower = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
   }
-  if (!request.query.id) {
+  const id = request.query.id as string;
+  const maxWh = request.query.maxWh as string;
+  const solarToken = request.query.solarToken as string;
+  if (!id) {
     response.status(404).send({error: "Missing parameter 'id'"});
     return;
   }
-  if (!request.query.maxWh) {
+  if (!maxWh) {
     response.status(404).send({error: "Missing parameter 'maxWh'"});
     return;
   }
-  const maxWh = parseFloat(request.query.maxWh as string);
-  if (Number.isNaN(maxWh)) {
+  const maxWhFloat = parseFloat(maxWh);
+  if (Number.isNaN(maxWhFloat)) {
     response.status(404).send({error: "'maxWh' must be a number"});
     return;
   }
-  if (maxWh < 0) {
+  if (maxWhFloat < 0) {
     response.status(404).send({error: "'maxWh' must not be negative"});
     return;
   }
+  response.send(takeSolarPower(id, maxWhFloat, solarToken));
+});
 
+/**
+ * @param {string} id Solar array ID.
+ * @param {number} maxWh Maximum energy to take.
+ * @param {string} solarToken Solar token.
+ */
+async function takeSolarPower(id: string, maxWh: number, solarToken: string): Promise<any> {
   // Calculate new values.
   const newSolarToken = uuidv4();
   const now = firestore.Timestamp.now();
   const connectionTimeSeconds = now.seconds;
-  const expireDurationSeconds = 5 * 60;
+  const expireDurationSeconds = 10 * 60;
   const newExpireTimeSeconds = connectionTimeSeconds + expireDurationSeconds;
 
   // Calculate potential energy delivered.
-  const solarArray = await SolarArray.get(request.query.id as string);
+  const solarArray = await SolarArray.get(id);
   const powerDurationHours = (connectionTimeSeconds - solarArray.connectionTimeSeconds) / (60.0 * 60.0);
   const activeW = (!solarArray.activeW) ? 0 : solarArray.activeW;
   let energyWh = activeW * powerDurationHours;
   let note = "";
 
   // Constrain energy delivered.
-  const providedToken = request.query.solarToken;
+  const providedToken = solarToken;
   const oldToken = solarArray.solarToken;
   if (connectionTimeSeconds > solarArray.expireTimeUtcSeconds) {
     energyWh = 0; // Expired.
@@ -168,7 +164,7 @@ export const takeSolarPower = functions.https.onRequest(async (request, response
   }
   energyWh = Math.min(energyWh, maxWh);
 
-  await log.EventLog.log(`TAKE solar array ${solarArray.id}, energy ${energyWh} Wh, ` +
+  await EventLog.log(`TAKE solar array ${solarArray.id}, energy ${energyWh} Wh, ` +
     `power ${activeW} W, duration ${powerDurationHours} h, ` +
     `provided token ${providedToken}, old token ${oldToken}, new token ${newSolarToken}, ` +
     `connection time ${connectionTimeSeconds} s, expire time ${newExpireTimeSeconds} s`);
@@ -177,7 +173,7 @@ export const takeSolarPower = functions.https.onRequest(async (request, response
     connectionTimeSeconds: connectionTimeSeconds,
     expireTimeUtcSeconds: newExpireTimeSeconds,
   });
-  response.send({
+  return {
     solarToken: newSolarToken,
     expireTimeUtcSeconds: newExpireTimeSeconds,
     energyWh: energyWh,
@@ -185,8 +181,8 @@ export const takeSolarPower = functions.https.onRequest(async (request, response
     activeW: activeW,
     note: note,
     solarArray: await SolarArray.get(solarArray.id),
-  });
-});
+  };
+}
 
 
 /**
@@ -208,7 +204,7 @@ export const connectBatteryToSolarArray = functions.https.onRequest(async (reque
 
   const solarArray = await SolarArray.get(request.query.solarId as string);
   const batteryId = request.query.batteryId as string;
-  await log.EventLog.log(`CONNECT solar array ${solarArray.id} to battery ${batteryId}`);
+  await EventLog.log(`CONNECT solar array ${solarArray.id} to battery ${batteryId}`);
   await SolarArray.update(solarArray.id, {connectedBatteryId: batteryId});
   response.send({
     connectedBatteryId: batteryId,
@@ -216,37 +212,52 @@ export const connectBatteryToSolarArray = functions.https.onRequest(async (reque
   });
 });
 
+/**
+ * Charge all batteries.
+ */
+export async function chargeBatteries(): Promise<boolean> {
+  const snapshot = await firebase.app().firestore().collection("SOLARARRAY").get();
+  if (snapshot.empty) {
+    return true;
+  }
+  console.log("chargeBatteries");
+  await snapshot.forEach(async (doc) => {
+    const batteryId = doc.data().connectedBatteryId;
+    const solarId = doc.id;
+    console.log(`chargeBatteries, solarId ${solarId}, batteryId ${batteryId}`);
+    if (batteryId) {
+      chargeBattery(batteryId, solarId);
+    }
+  });
+  return true;
+}
 
 /**
- * Battery database functions.
+ * Charge a battery from a solar array.
+ *
+ * The battery is responsible for tracking the solarToken across multiple requests.
+ *
+ * @param {string} batteryId Battery will attempt to charge to maximum capacity.
+ * @param {string} solarId Solar array that will handle the request for power.
  */
-class SolarArray {
-  /**
-   * Create a new solar array.
-   * @return {Promise<string>} ID of new solar array.
-   */
-  static async create(): Promise<string> {
-    return firebase.app().firestore().collection("SOLARARRAY").add({}).then((ref) => {
-      return ref.id;
-    });
-  }
+async function chargeBattery(batteryId: string, solarId: string) {
+  const battery = await Battery.get(batteryId);
 
-  /**
-   * @param {string} id ID of solar array.
-   * @param {object} data Fields to be updated.
-   * @return {Promise<any>} Update metadata.
-   */
-  static async update(id: string, data: object): Promise<any> {
-    return firebase.app().firestore().collection("SOLARARRAY").doc(id).update(data);
-  }
+  const oldCharge = (!battery.WhCharge) ? 0 : battery.WhCharge;
+  const WhCapacity = (!battery.WhCapacity) ? 0 : battery.WhCapacity;
+  const maxWh = WhCapacity - oldCharge;
+  const solarToken = battery.solarToken as string;
 
-  /**
-   * @param {string} id ID of battery.
-   * @return {Promise<any>} Data for battery.
-   */
-  static async get(id: string): Promise<any> {
-    return firebase.app().firestore().collection("SOLARARRAY").doc(id).get().then((result) => {
-      return result.data();
-    });
-  }
+  const solarResult = await takeSolarPower(solarId, maxWh, solarToken);
+
+  const newSolarToken = solarResult.solarToken;
+  const energyAddedWh = solarResult.energyWh;
+  const newCharge = oldCharge + energyAddedWh;
+
+  await EventLog.log(`SOLAR CHARGE battery ${battery.id}, ${energyAddedWh} Wh, new charge ${newCharge} Wh, ` +
+    `from solar array ${solarId}, using solar token ${solarToken}, new solar token ${newSolarToken}`);
+  await Battery.update(battery.id, {
+    WhCharge: newCharge,
+    solarToken: newSolarToken,
+  });
 }

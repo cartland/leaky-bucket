@@ -1,7 +1,7 @@
-import * as firebase from "firebase-admin";
 import * as functions from "firebase-functions";
 
-import * as log from "./EventLog";
+import {EventLog} from "./EventLog";
+import {Battery} from "./Battery";
 
 /**
  * Create a new battery with capacity WhCapacity. Generates a new battery ID.
@@ -22,7 +22,7 @@ export const newBattery = functions.https.onRequest(async (request, response) =>
   }
   const id = await Battery.create();
   await Battery.update(id, {id: id, WhCapacity: WhCapacity});
-  await log.EventLog.log(`CREATED new battery with ID ${id} and capacity ${WhCapacity} Wh`);
+  await EventLog.log(`CREATED new battery with ID ${id} and capacity ${WhCapacity} Wh`);
   response.send(await Battery.get(id));
 });
 
@@ -72,7 +72,7 @@ export const chargeBattery = functions.https.onRequest(async (request, response)
   const newCharge = Math.min(battery.WhCapacity, oldCharge + addWh);
   const change = newCharge - oldCharge;
 
-  await log.EventLog.log(`CHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
+  await EventLog.log(`CHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
   await Battery.update(battery.id, {WhCharge: newCharge});
   response.send({
     WhChange: change,
@@ -111,45 +111,10 @@ export const dischargeBattery = functions.https.onRequest(async (request, respon
   const newCharge = Math.max(0, oldCharge - consumeWh);
   const change = newCharge - oldCharge;
 
-  await log.EventLog.log(`DISCHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
+  await EventLog.log(`DISCHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
   await Battery.update(battery.id, {WhCharge: newCharge});
   response.send({
     WhChange: change,
     battery: await Battery.get(battery.id),
   });
 });
-
-
-/**
- * Battery database functions.
- */
-class Battery {
-  /**
-   * Create a new battery.
-   * @return {Promise<string>} ID of new battery.
-   */
-  static async create(): Promise<string> {
-    return firebase.app().firestore().collection("BATTERIES").add({}).then((ref) => {
-      return ref.id;
-    });
-  }
-
-  /**
-   * @param {string} id ID of battery.
-   * @param {object} data Fields to be updated.
-   * @return {Promise<any>} Update metadata.
-   */
-  static async update(id: string, data: object): Promise<any> {
-    return firebase.app().firestore().collection("BATTERIES").doc(id).update(data);
-  }
-
-  /**
-   * @param {string} id ID of battery.
-   * @return {Promise<any>} Data for battery.
-   */
-  static async get(id: string): Promise<any> {
-    return firebase.app().firestore().collection("BATTERIES").doc(id).get().then((result) => {
-      return result.data();
-    });
-  }
-}
