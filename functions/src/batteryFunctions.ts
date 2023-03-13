@@ -1,7 +1,7 @@
 import * as functions from "firebase-functions";
 
-import {EventLog} from "./EventLog";
-import {Battery} from "./Battery";
+import {EventLog} from "./data/EventLog";
+import {Battery} from "./data/Battery";
 
 /**
  * Create a new battery with capacity WhCapacity. Generates a new battery ID.

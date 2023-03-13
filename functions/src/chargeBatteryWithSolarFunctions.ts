@@ -1,9 +1,9 @@
 import * as firebase from "firebase-admin";
 import * as functions from "firebase-functions";
 
-import {Battery} from "./Battery";
-import {EventLog} from "./EventLog";
-import {SolarArray} from "./SolarArray";
+import {Battery} from "./data/Battery";
+import {EventLog} from "./data/EventLog";
+import {SolarArray} from "./data/SolarArray";
 
 import {takeSolarPower} from "./solarArrayFunctions";
 

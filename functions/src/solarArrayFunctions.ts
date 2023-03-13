@@ -2,8 +2,8 @@ import * as firestore from "firebase-admin/firestore";
 import * as functions from "firebase-functions";
 import {v4 as uuidv4} from "uuid";
 
-import {EventLog} from "./EventLog";
-import {SolarArray} from "./SolarArray";
+import {EventLog} from "./data/EventLog";
+import {SolarArray} from "./data/SolarArray";
 
 /**
  * Create a new solar array with maximum power capacity. Generates a new ID.
