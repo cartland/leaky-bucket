@@ -2,6 +2,7 @@ import * as firebase from "firebase-admin";
 import * as functions from "firebase-functions";
 
 import * as batteryFunctions from "./batteryFunctions";
+import * as chargeBatteryWithSolarFunctions from "./chargeBatteryWithSolarFunctions";
 import * as solarArrayFunctions from "./solarArrayFunctions";
 
 firebase.initializeApp();
@@ -106,20 +107,20 @@ export const takeSolarPower = solarArrayFunctions.httpTakeSolarPower;
  *
  * A solar array can only be connected to 1 battery at a time.
  */
-export const connectBatteryToSolarArray = solarArrayFunctions.connectBatteryToSolarArray;
+export const connectBatteryToSolarArray = chargeBatteryWithSolarFunctions.connectBatteryToSolarArray;
 
 export const chargeBatteriesWithSolarArrays = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
   }
-  const success = await solarArrayFunctions.chargeBatteries();
+  const success = await chargeBatteryWithSolarFunctions.chargeBatteries();
   response.send({success: success});
 });
 
 export const scheduleChargeBatteriesWithSolarArrays = functions.pubsub.
   schedule("every 5 minutes").onRun(async (_) => {
-    const success = await solarArrayFunctions.chargeBatteries();
+    const success = await chargeBatteryWithSolarFunctions.chargeBatteries();
     console.log(`chargeBatteries sucess: ${success}`);
     return null;
   });
