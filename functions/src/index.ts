@@ -59,8 +59,11 @@ export const dischargeBattery = batteryFunctions.dischargeBattery;
 
 // curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takeSolarPower\?id\=rJnbBUBaVJ4lFUsqRnki\&maxWh\=4000\&solarToken=\A
 
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/connectBatteryToSolarArray\?solarId\=rJnbBUBaVJ4lFUsqRnki\&batteryId\=abcd
-//
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/connectBatteryToSolarArray\?solarId\=rJnbBUBaVJ4lFUsqRnki\&batteryId\=MzeVxY0YYGQDS02PgePn
+// {"connectedBatteryId": "MzeVxY0YYGQDS02PgePn", "solarArray":
+//   {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 4000, "connectedBatteryId": "MzeVxY0YYGQDS02PgePn"} }
+
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/chargeBatteriesWithSolarArrays
 
 /**
  * Create a new solar array with maximum power capacity. Generates a new ID.
