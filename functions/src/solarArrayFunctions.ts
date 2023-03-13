@@ -8,7 +8,7 @@ import {SolarArray} from "./SolarArray";
 /**
  * Create a new solar array with maximum power capacity. Generates a new ID.
  */
-export const newSolarArray = functions.https.onRequest(async (request, response) => {
+export const httpNewSolarArray = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
@@ -31,7 +31,7 @@ export const newSolarArray = functions.https.onRequest(async (request, response)
 /**
  * Get solar array info.
  */
-export const getSolarArray = functions.https.onRequest(async (request, response) => {
+export const httpGetSolarArray = functions.https.onRequest(async (request, response) => {
   if (request.method !== "GET") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
@@ -46,7 +46,7 @@ export const getSolarArray = functions.https.onRequest(async (request, response)
 /**
  * Set active solar power.
  */
-export const setActiveSolarPower = functions.https.onRequest(async (request, response) => {
+export const httpSetActiveSolarPower = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;

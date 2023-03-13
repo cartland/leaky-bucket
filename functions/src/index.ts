@@ -31,21 +31,21 @@ firebase.initializeApp();
 // {"WhChange": -11, "battery":
 // {"WhCapacity": 75000, "id": "NBi0dEvaSBinEFnb1eAy", "WhCharge": 0} }
 
-export const newBattery = batteryFunctions.newBattery;
+export const newBattery = batteryFunctions.httpNewBattery;
 /**
  * Get battery info.
  */
-export const getBattery = batteryFunctions.getBattery;
+export const getBattery = batteryFunctions.httpGetBattery;
 
 /**
  * Charge battery by a specified amount.
  */
-export const chargeBattery = batteryFunctions.chargeBattery;
+export const chargeBattery = batteryFunctions.httpChargeBattery;
 
 /**
  * Discharge battery by a specified amount.
  */
-export const dischargeBattery = batteryFunctions.dischargeBattery;
+export const dischargeBattery = batteryFunctions.httpDischargeBattery;
 
 // SOLAR ARRAY USAGE EXAMPLES
 
@@ -69,16 +69,16 @@ export const dischargeBattery = batteryFunctions.dischargeBattery;
 /**
  * Create a new solar array with maximum power capacity. Generates a new ID.
  */
-export const newSolarArray = solarArrayFunctions.newSolarArray;
+export const newSolarArray = solarArrayFunctions.httpNewSolarArray;
 /**
  * Get solar array info.
  */
-export const getSolarArray = solarArrayFunctions.getSolarArray;
+export const getSolarArray = solarArrayFunctions.httpGetSolarArray;
 
 /**
  * Set active solar power.
  */
-export const setActiveSolarPower = solarArrayFunctions.setActiveSolarPower;
+export const setActiveSolarPower = solarArrayFunctions.httpSetActiveSolarPower;
 
 /**
  * Attempt to take energy from solar array.
@@ -107,7 +107,7 @@ export const takeSolarPower = solarArrayFunctions.httpTakeSolarPower;
  *
  * A solar array can only be connected to 1 battery at a time.
  */
-export const connectBatteryToSolarArray = chargeBatteryWithSolarFunctions.connectBatteryToSolarArray;
+export const connectBatteryToSolarArray = chargeBatteryWithSolarFunctions.httpConnectBatteryToSolarArray;
 
 export const chargeBatteriesWithSolarArrays = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {

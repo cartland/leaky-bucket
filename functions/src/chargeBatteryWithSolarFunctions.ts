@@ -10,7 +10,7 @@ import {takeSolarPower} from "./solarArrayFunctions";
 /**
  * Connect battery to solar array.
  */
-export const connectBatteryToSolarArray = functions.https.onRequest(async (request, response) => {
+export const httpConnectBatteryToSolarArray = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;

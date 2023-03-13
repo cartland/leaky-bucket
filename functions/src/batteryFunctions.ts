@@ -6,7 +6,7 @@ import {Battery} from "./Battery";
 /**
  * Create a new battery with capacity WhCapacity. Generates a new battery ID.
  */
-export const newBattery = functions.https.onRequest(async (request, response) => {
+export const httpNewBattery = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
@@ -29,7 +29,7 @@ export const newBattery = functions.https.onRequest(async (request, response) =>
 /**
  * Get battery info.
  */
-export const getBattery = functions.https.onRequest(async (request, response) => {
+export const httpGetBattery = functions.https.onRequest(async (request, response) => {
   if (request.method !== "GET") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
@@ -44,7 +44,7 @@ export const getBattery = functions.https.onRequest(async (request, response) =>
 /**
  * Charge battery by a specified amount.
  */
-export const chargeBattery = functions.https.onRequest(async (request, response) => {
+export const httpChargeBattery = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
@@ -83,7 +83,7 @@ export const chargeBattery = functions.https.onRequest(async (request, response)
 /**
  * Discharge battery by a specified amount.
  */
-export const dischargeBattery = functions.https.onRequest(async (request, response) => {
+export const httpDischargeBattery = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
