@@ -1,120 +1,67 @@
-import * as functions from "firebase-functions";
-
 import {EventLog} from "./data/EventLog";
 import {Battery} from "./data/Battery";
 
 /**
- * Create a new battery with capacity WhCapacity. Generates a new battery ID.
+ * Control battery.
  */
-export const httpNewBattery = functions.https.onRequest(async (request, response) => {
-  if (request.method !== "POST") {
-    response.status(405).send({error: "HTTP method not allowed"});
-    return;
-  }
-  if (!request.query.WhCapacity) {
-    response.status(404).send({error: "Missing parameter 'WhCapacity'"});
-    return;
-  }
-  const WhCapacity = parseFloat(request.query.WhCapacity as string);
-  if (Number.isNaN(WhCapacity)) {
-    response.status(404).send({error: "'WhCapacity' must be a number"});
-    return;
-  }
-  const id = await Battery.create();
-  await Battery.update(id, {id: id, WhCapacity: WhCapacity});
-  await EventLog.log(`CREATED new battery with ID ${id} and capacity ${WhCapacity} Wh`);
-  response.send(await Battery.get(id));
-});
-
-/**
- * Get battery info.
- */
-export const httpGetBattery = functions.https.onRequest(async (request, response) => {
-  if (request.method !== "GET") {
-    response.status(405).send({error: "HTTP method not allowed"});
-    return;
-  }
-  if (!request.query.id) {
-    response.status(404).send({error: "Missing parameter 'id'"});
-    return;
-  }
-  response.send(await Battery.get(request.query.id as string));
-});
-
-/**
- * Charge battery by a specified amount.
- */
-export const httpChargeBattery = functions.https.onRequest(async (request, response) => {
-  if (request.method !== "POST") {
-    response.status(405).send({error: "HTTP method not allowed"});
-    return;
-  }
-  if (!request.query.id) {
-    response.status(404).send({error: "Missing parameter 'id'"});
-    return;
-  }
-  if (!request.query.addWh) {
-    response.status(404).send({error: "Missing parameter 'addWh'"});
-    return;
-  }
-  const addWh = parseFloat(request.query.addWh as string);
-  if (Number.isNaN(addWh)) {
-    response.status(404).send({error: "'addWh' must be a number"});
-    return;
-  }
-  if (addWh < 0) {
-    response.status(404).send({error: "'addWh' must not be negative"});
-    return;
+export class BatteryController {
+  /**
+   * Create a new battery with capacity WhCapacity. Generates a new battery ID.
+   *
+   * @param {number} WhCapacity Battery capacity.
+   */
+  static async newBattery(WhCapacity: number): Promise<any> {
+    const id = await Battery.create();
+    await Battery.update(id, {id: id, WhCapacity: WhCapacity});
+    await EventLog.log(`CREATED new battery with ID ${id} and capacity ${WhCapacity} Wh`);
+    return await Battery.get(id);
   }
 
-  const battery = await Battery.get(request.query.id as string);
-  const oldCharge = (!battery.WhCharge) ? 0 : battery.WhCharge;
-  const newCharge = Math.min(battery.WhCapacity, oldCharge + addWh);
-  const change = newCharge - oldCharge;
-
-  await EventLog.log(`CHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
-  await Battery.update(battery.id, {WhCharge: newCharge});
-  response.send({
-    WhChange: change,
-    battery: await Battery.get(battery.id),
-  });
-});
-
-/**
- * Discharge battery by a specified amount.
- */
-export const httpDischargeBattery = functions.https.onRequest(async (request, response) => {
-  if (request.method !== "POST") {
-    response.status(405).send({error: "HTTP method not allowed"});
-    return;
-  }
-  if (!request.query.id) {
-    response.status(404).send({error: "Missing parameter 'id'"});
-    return;
-  }
-  if (!request.query.consumeWh) {
-    response.status(404).send({error: "Missing parameter 'consumeWh'"});
-    return;
-  }
-  const consumeWh = parseFloat(request.query.consumeWh as string);
-  if (Number.isNaN(consumeWh)) {
-    response.status(404).send({error: "'consumeWh' must be a number"});
-    return;
-  }
-  if (consumeWh < 0) {
-    response.status(404).send({error: "'consumeWh' must not be negative"});
-    return;
+  /**
+   * Get battery info.
+   *
+   * @param {string} id
+   */
+  static async getBattery(id: string): Promise<any> {
+    return await Battery.get(id);
   }
 
-  const battery = await Battery.get(request.query.id as string);
-  const oldCharge = (!battery.WhCharge) ? 0 : battery.WhCharge;
-  const newCharge = Math.max(0, oldCharge - consumeWh);
-  const change = newCharge - oldCharge;
+  /**
+   * Charge battery by a specified amount.
+   *
+   * @param {string} id Battery ID.
+   * @param {number} addWh Energy to add.
+   */
+  static async chargeBattery(id: string, addWh: number): Promise<any> {
+    const battery = await Battery.get(id);
+    const oldCharge = (!battery.WhCharge) ? 0 : battery.WhCharge;
+    const newCharge = Math.min(battery.WhCapacity, oldCharge + addWh);
+    const change = newCharge - oldCharge;
 
-  await EventLog.log(`DISCHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
-  await Battery.update(battery.id, {WhCharge: newCharge});
-  response.send({
-    WhChange: change,
-    battery: await Battery.get(battery.id),
-  });
-});
+    await EventLog.log(`CHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
+    await Battery.update(battery.id, {WhCharge: newCharge});
+    return {
+      WhChange: change,
+      battery: await Battery.get(battery.id),
+    };
+  }
+
+  /**
+   * Discharge battery by a specified amount.
+   *
+   * @param {string} id Battery ID.
+   * @param {number} consumeWh Energy to consume.
+   */
+  static async dischargeBattery(id: string, consumeWh: number): Promise<any> {
+    const battery = await Battery.get(id);
+    const oldCharge = (!battery.WhCharge) ? 0 : battery.WhCharge;
+    const newCharge = Math.max(0, oldCharge - consumeWh);
+    const change = newCharge - oldCharge;
+    await EventLog.log(`DISCHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
+    await Battery.update(battery.id, {WhCharge: newCharge});
+    return {
+      WhChange: change,
+      battery: await Battery.get(battery.id),
+    };
+  }
+}

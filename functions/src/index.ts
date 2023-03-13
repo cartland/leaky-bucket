@@ -1,9 +1,9 @@
 import * as firebase from "firebase-admin";
 import * as functions from "firebase-functions";
 
-import * as batteryFunctions from "./batteryFunctions";
-import * as chargeBatteryWithSolarFunctions from "./chargeBatteryWithSolarFunctions";
-import * as solarArrayFunctions from "./solarArrayFunctions";
+import {BatteryController} from "./batteryFunctions";
+import {SolarBatteryChargeController} from "./chargeBatteryWithSolarFunctions";
+import {SolarArrayController} from "./solarArrayFunctions";
 
 firebase.initializeApp();
 
@@ -31,21 +31,97 @@ firebase.initializeApp();
 // {"WhChange": -11, "battery":
 // {"WhCapacity": 75000, "id": "NBi0dEvaSBinEFnb1eAy", "WhCharge": 0} }
 
-export const newBattery = batteryFunctions.httpNewBattery;
+export const newBattery = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  if (!request.query.WhCapacity) {
+    response.status(404).send({error: "Missing parameter 'WhCapacity'"});
+    return;
+  }
+  const WhCapacity = parseFloat(request.query.WhCapacity as string);
+  if (Number.isNaN(WhCapacity)) {
+    response.status(404).send({error: "'WhCapacity' must be a number"});
+    return;
+  }
+  if (WhCapacity < 0) {
+    response.status(404).send({error: "'WhCapacity' must not be negative"});
+    return;
+  }
+  response.send(await BatteryController.newBattery(WhCapacity));
+});
+
 /**
  * Get battery info.
  */
-export const getBattery = batteryFunctions.httpGetBattery;
+export const getBattery = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "GET") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  if (!request.query.id) {
+    response.status(404).send({error: "Missing parameter 'id'"});
+    return;
+  }
+  response.send(BatteryController.getBattery(request.query.id as string));
+});
 
 /**
  * Charge battery by a specified amount.
  */
-export const chargeBattery = batteryFunctions.httpChargeBattery;
+export const chargeBattery = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  if (!request.query.id) {
+    response.status(404).send({error: "Missing parameter 'id'"});
+    return;
+  }
+  if (!request.query.addWh) {
+    response.status(404).send({error: "Missing parameter 'addWh'"});
+    return;
+  }
+  const addWh = parseFloat(request.query.addWh as string);
+  if (Number.isNaN(addWh)) {
+    response.status(404).send({error: "'addWh' must be a number"});
+    return;
+  }
+  if (addWh < 0) {
+    response.status(404).send({error: "'addWh' must not be negative"});
+    return;
+  }
+  response.send(await BatteryController.chargeBattery(request.query.id as string, addWh));
+});
 
 /**
  * Discharge battery by a specified amount.
  */
-export const dischargeBattery = batteryFunctions.httpDischargeBattery;
+export const dischargeBattery = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  if (!request.query.id) {
+    response.status(404).send({error: "Missing parameter 'id'"});
+    return;
+  }
+  if (!request.query.consumeWh) {
+    response.status(404).send({error: "Missing parameter 'consumeWh'"});
+    return;
+  }
+  const consumeWh = parseFloat(request.query.consumeWh as string);
+  if (Number.isNaN(consumeWh)) {
+    response.status(404).send({error: "'consumeWh' must be a number"});
+    return;
+  }
+  if (consumeWh < 0) {
+    response.status(404).send({error: "'consumeWh' must not be negative"});
+    return;
+  }
+  response.send(await BatteryController.dischargeBattery(request.query.id as string, consumeWh));
+});
 
 // SOLAR ARRAY USAGE EXAMPLES
 
@@ -69,16 +145,65 @@ export const dischargeBattery = batteryFunctions.httpDischargeBattery;
 /**
  * Create a new solar array with maximum power capacity. Generates a new ID.
  */
-export const newSolarArray = solarArrayFunctions.httpNewSolarArray;
+export const newSolarArray = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  if (!request.query.maxW) {
+    response.status(404).send({error: "Missing parameter 'maxW'"});
+    return;
+  }
+  const maxW = parseFloat(request.query.maxW as string);
+  if (Number.isNaN(maxW)) {
+    response.status(404).send({error: "'maxW' must be a number"});
+    return;
+  }
+  if (maxW < 0) {
+    response.status(404).send({error: "'maxW' must not be negative"});
+    return;
+  }
+  response.send(await SolarArrayController.newSolarArray(maxW));
+});
+
 /**
  * Get solar array info.
  */
-export const getSolarArray = solarArrayFunctions.httpGetSolarArray;
+export const getSolarArray = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "GET") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  if (!request.query.id) {
+    response.status(404).send({error: "Missing parameter 'id'"});
+    return;
+  }
+  response.send(SolarArrayController.getSolarArray(request.query.id as string));
+});
 
 /**
  * Set active solar power.
  */
-export const setActiveSolarPower = solarArrayFunctions.httpSetActiveSolarPower;
+export const setActiveSolarPower = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  if (!request.query.id) {
+    response.status(404).send({error: "Missing parameter 'id'"});
+    return;
+  }
+  if (!request.query.activeW) {
+    response.status(404).send({error: "Missing parameter 'activeW'"});
+    return;
+  }
+  const activeW = parseFloat(request.query.activeW as string);
+  if (Number.isNaN(activeW)) {
+    response.status(404).send({error: "'activeW' must be a number"});
+    return;
+  }
+  response.send(await SolarArrayController.setActiveSolarPower(request.query.id as string, activeW));
+});
 
 /**
  * Attempt to take energy from solar array.
@@ -100,27 +225,70 @@ export const setActiveSolarPower = solarArrayFunctions.httpSetActiveSolarPower;
  * takeSolarPower(C)
  * -> Wh: 0, Token: D, Expires: 5 minutes
  */
-export const takeSolarPower = solarArrayFunctions.httpTakeSolarPower;
+export const takeSolarPower = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  const id = request.query.id as string;
+  const maxWh = request.query.maxWh as string;
+  const solarToken = request.query.solarToken as string;
+  if (!id) {
+    response.status(404).send({error: "Missing parameter 'id'"});
+    return;
+  }
+  if (!maxWh) {
+    response.status(404).send({error: "Missing parameter 'maxWh'"});
+    return;
+  }
+  const maxWhFloat = parseFloat(maxWh);
+  if (Number.isNaN(maxWhFloat)) {
+    response.status(404).send({error: "'maxWh' must be a number"});
+    return;
+  }
+  if (maxWhFloat < 0) {
+    response.status(404).send({error: "'maxWh' must not be negative"});
+    return;
+  }
+  response.send(await SolarArrayController.takeSolarPower(id, maxWhFloat, solarToken));
+});
+
 
 /**
  * Connect a battery to a solar array.
  *
  * A solar array can only be connected to 1 battery at a time.
  */
-export const connectBatteryToSolarArray = chargeBatteryWithSolarFunctions.httpConnectBatteryToSolarArray;
+export const connectBatteryToSolarArray = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  const solarId = request.query.solarId as string;
+  if (!solarId) {
+    response.status(404).send({error: "Missing parameter 'solarId'"});
+    return;
+  }
+  const batteryId = request.query.batteryId as string;
+  if (!batteryId) {
+    response.status(404).send({error: "Missing parameter 'batteryId'"});
+    return;
+  }
+  response.send(await SolarBatteryChargeController.connectBatteryToSolarArray(batteryId, solarId));
+});
 
 export const chargeBatteriesWithSolarArrays = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
   }
-  const success = await chargeBatteryWithSolarFunctions.chargeBatteries();
+  const success = await SolarBatteryChargeController.solarChargeAllBatteries();
   response.send({success: success});
 });
 
 export const scheduleChargeBatteriesWithSolarArrays = functions.pubsub.
   schedule("every 5 minutes").onRun(async (_) => {
-    const success = await chargeBatteryWithSolarFunctions.chargeBatteries();
+    const success = await SolarBatteryChargeController.solarChargeAllBatteries();
     console.log(`chargeBatteries sucess: ${success}`);
     return null;
   });
