@@ -4,7 +4,7 @@ import {Battery} from "./data/Battery";
 import {EventLog} from "./data/EventLog";
 import {SolarArray} from "./data/SolarArray";
 
-import {SolarArrayController} from "./solarArrayFunctions";
+import {SolarArrayController} from "./SolarArrayController";
 
 /**
  * Solar battery charge controller.

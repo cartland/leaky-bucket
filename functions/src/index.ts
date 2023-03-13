@@ -1,9 +1,9 @@
 import * as firebase from "firebase-admin";
 import * as functions from "firebase-functions";
 
-import {BatteryController} from "./batteryFunctions";
-import {SolarBatteryChargeController} from "./chargeBatteryWithSolarFunctions";
-import {SolarArrayController} from "./solarArrayFunctions";
+import {BatteryController} from "./BatteryController";
+import {SolarBatteryChargeController} from "./SolarBatteryChargeController";
+import {SolarArrayController} from "./SolarArrayController";
 
 firebase.initializeApp();
 
