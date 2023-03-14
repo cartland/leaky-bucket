@@ -43,7 +43,7 @@ export class BatteryDB {
    * @param {object} data Fields to be updated.
    * @return {Promise<any>} Update metadata.
    */
-  static async update(id: string, data: Battery): Promise<any> {
+  static async update(id: string, data: Battery): Promise<firestore.WriteResult> {
     return BatteryDB.ref().doc(id).update(data);
   }
 

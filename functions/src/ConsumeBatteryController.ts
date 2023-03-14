@@ -1,9 +1,14 @@
 import * as firebase from "firebase-admin";
 
 import {BatteryDB} from "./data/BatteryDB";
-import {EnergyConsumerDB} from "./data/EnergyConsumerDB";
+import {EnergyConsumer, EnergyConsumerDB} from "./data/EnergyConsumerDB";
 import {EventLogDB} from "./data/EventLogDB";
 import {EnergyConsumerController} from "./EnergyConsumerController";
+
+interface ConnectEnergyConsumerToBatteryResult {
+  connectedBatteryId?: string,
+  energyConsumer?: EnergyConsumer,
+}
 
 /**
  * Consumer battery controller.
@@ -15,10 +20,13 @@ export class ConsumeBatteryController {
    * @param {string} energyConsumerId Energy consumer ID.
    * @param {string} batteryId Battery ID.
    */
-  static async connectEnergyConsumerToBattery(energyConsumerId: string, batteryId: string): Promise<any> {
+  static async connectEnergyConsumerToBattery(
+    energyConsumerId: string,
+    batteryId: string,
+  ): Promise<ConnectEnergyConsumerToBatteryResult> {
     await EventLogDB.log(`CONNECT energy consumer ${energyConsumerId} to battery ${batteryId}`);
     await EnergyConsumerDB.update(energyConsumerId, {connectedBatteryId: batteryId});
-    return {
+    return <ConnectEnergyConsumerToBatteryResult>{
       connectedBatteryId: batteryId,
       energyConsumer: await EnergyConsumerDB.get(energyConsumerId),
     };
@@ -60,15 +68,20 @@ export class ConsumeBatteryController {
     const maxEnergyRequestedWh = oldChargeWh;
     const powerToken = battery.powerToken as string;
 
-    const consumerResult = await EnergyConsumerController.takePower(energyConsumerId, maxEnergyRequestedWh, powerToken);
+    const consumerResult = await EnergyConsumerController.takePower(
+      energyConsumerId,
+      maxEnergyRequestedWh,
+      powerToken);
 
     const newPowerToken = consumerResult.powerToken;
-    const energyTakenWh = consumerResult.energyWh;
+    const energyTakenWh = (!consumerResult?.energyWh) ? 0 : consumerResult?.energyWh;
     const newCharge = Math.max(0, oldChargeWh - energyTakenWh);
     const energyTakenFromBatteryWh = oldChargeWh - newCharge; // Should match energy taken.
 
-    await EventLogDB.log(`CONSUME energy from battery ${batteryId}, ${energyTakenFromBatteryWh} Wh, new charge ${newCharge} Wh, ` +
-      `to energy consumer ${energyConsumerId}, using power token ${powerToken}, new power token ${newPowerToken}`);
+    await EventLogDB.log(`CONSUME energy from battery ${batteryId}, ` +
+      `${energyTakenFromBatteryWh} Wh, new charge ${newCharge} Wh, ` +
+      `to energy consumer ${energyConsumerId}, using power token ${powerToken}, ` +
+      `new power token ${newPowerToken}`);
     await BatteryDB.update(batteryId, {
       WhCharge: newCharge,
       powerToken: newPowerToken,

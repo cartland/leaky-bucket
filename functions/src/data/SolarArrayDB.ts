@@ -44,7 +44,7 @@ export class SolarArrayDB {
    * @param {string} id ID of solar array.
    * @param {SolarArray} data Fields to be updated.
    */
-  static async update(id: string, data: SolarArray): Promise<any> {
+  static async update(id: string, data: SolarArray): Promise<firestore.WriteResult> {
     return SolarArrayDB.ref().doc(id).update(data);
   }
 

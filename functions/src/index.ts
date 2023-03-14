@@ -136,7 +136,7 @@ export const dischargeBattery = functions.https.onRequest(async (request, respon
 // curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActiveSolarPower\?activeW\=4000\&id\=NA5MiLuRJPbaIw954JEJ
 // {"activeW": 4000, "solarArray": {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 4000} }
 
-// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takeSolarPower\?id\=rJnbBUBaVJ4lFUsqRnki\&maxWh\=4000\&solarToken=\A
+// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takeSolarPower\?maxWh\=4000\&id\=rJnbBUBaVJ4lFUsqRnki\&solarToken=\A
 
 // curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/connectBatteryToSolarArray\?solarId\=rJnbBUBaVJ4lFUsqRnki\&batteryId\=MzeVxY0YYGQDS02PgePn
 // {"connectedBatteryId": "MzeVxY0YYGQDS02PgePn", "solarArray":
@@ -289,7 +289,7 @@ export const chargeBatteriesWithSolarArrays = functions.https.onRequest(async (r
 });
 
 export const scheduleChargeBatteriesWithSolarArrays = functions.pubsub.
-  schedule("every 5 minutes").onRun(async (_) => {
+  schedule("every 5 minutes").onRun(async () => {
     const success = await SolarBatteryChargeController.solarChargeAllBatteries();
     console.log(`chargeBatteries sucess: ${success}`);
     return null;
@@ -307,7 +307,7 @@ export const scheduleChargeBatteriesWithSolarArrays = functions.pubsub.
 // curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActivePowerConsumption\?activeW\=500\&id\=NA5MiLuRJPbaIw954JEJ
 // {"activeW": 500, "energyConsumer": {"maxW": 1000, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 500} }
 
-// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takePower\?id\=NA5MiLuRJPbaIw954JEJ\&maxWh\=200\&powerToken=\A
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takePower\?maxWh\=200\&id\=NA5MiLuRJPbaIw954JEJ\&powerToken=\A
 
 // curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/connectConsumerToBattery\?consumerId\=NA5MiLuRJPbaIw954JEJ\&batteryId\=MzeVxY0YYGQDS02PgePn
 // {"connectedBatteryId": "MzeVxY0YYGQDS02PgePn", "energyConsumer":
@@ -460,7 +460,7 @@ export const consumeEnergyFromAllBatteries = functions.https.onRequest(async (re
 });
 
 export const scheduleConsumeEnergyFromAllBatteries = functions.pubsub.
-  schedule("every 5 minutes").onRun(async (_) => {
+  schedule("every 5 minutes").onRun(async () => {
     const success = await ConsumeBatteryController.consumeEnergyFromAllBatteries();
     console.log(`chargeBatteries sucess: ${success}`);
     return null;

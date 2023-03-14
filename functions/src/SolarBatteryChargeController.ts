@@ -2,10 +2,14 @@ import * as firebase from "firebase-admin";
 
 import {BatteryDB} from "./data/BatteryDB";
 import {EventLogDB} from "./data/EventLogDB";
-import {SolarArrayDB} from "./data/SolarArrayDB";
+import {SolarArray, SolarArrayDB} from "./data/SolarArrayDB";
 
 import {SolarArrayController} from "./SolarArrayController";
 
+interface ConnectBatteryToSolarArrayResult {
+  connectedBatteryId?: string,
+  solarArray?: SolarArray,
+}
 /**
  * Solar battery charge controller.
  */
@@ -16,10 +20,13 @@ export class SolarBatteryChargeController {
    * @param {string} batteryId Battery ID.
    * @param {string} solarId Solar array ID.
    */
-  static async connectBatteryToSolarArray(batteryId: string, solarId: string): Promise<any> {
+  static async connectBatteryToSolarArray(
+    batteryId: string,
+    solarId: string,
+  ): Promise<ConnectBatteryToSolarArrayResult> {
     await EventLogDB.log(`CONNECT solar array ${solarId} to battery ${batteryId}`);
     await SolarArrayDB.update(solarId, {connectedBatteryId: batteryId});
-    return {
+    return <ConnectBatteryToSolarArrayResult>{
       connectedBatteryId: batteryId,
       solarArray: await SolarArrayDB.get(solarId),
     };
@@ -69,11 +76,13 @@ export class SolarBatteryChargeController {
     const solarResult = await SolarArrayController.takeSolarPower(solarId, maxWh, solarToken);
 
     const newSolarToken = solarResult.solarToken;
-    const energyAddedWh = solarResult.energyWh;
+    const energyAddedWh = (!solarResult.energyWh) ? 0 : solarResult.energyWh;
     const newCharge = oldCharge + energyAddedWh;
 
-    await EventLogDB.log(`SOLAR CHARGE battery ${batteryId}, ${energyAddedWh} Wh, new charge ${newCharge} Wh, ` +
-      `from solar array ${solarId}, using solar token ${solarToken}, new solar token ${newSolarToken}`);
+    await EventLogDB.log(`SOLAR CHARGE battery ${batteryId}, ` +
+      `${energyAddedWh} Wh, new charge ${newCharge} Wh, ` +
+      `from solar array ${solarId}, using solar token ${solarToken}, ` +
+      `new solar token ${newSolarToken}`);
     await BatteryDB.update(batteryId, {
       WhCharge: newCharge,
       solarToken: newSolarToken,

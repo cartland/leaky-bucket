@@ -4,6 +4,21 @@ import {v4 as uuidv4} from "uuid";
 import {EventLogDB} from "./data/EventLogDB";
 import {SolarArray, SolarArrayDB} from "./data/SolarArrayDB";
 
+interface TakeSolarPowerResult {
+  solarToken?: string,
+  expireTimeUtcSeconds?: number,
+  energyWh?: number,
+  powerDurationHours?: number,
+  activeW?: number,
+  note?: string,
+  solarArray?: SolarArray,
+}
+
+interface SetActiveSolarPowerResult {
+  activeW?: number,
+  solarArray?: SolarArray,
+}
+
 /**
  * Solar array controller.
  */
@@ -35,7 +50,10 @@ export class SolarArrayController {
    * @param {string} id
    * @param {number} activeW
    */
-  static async setActiveSolarPower(id: string, activeW: number): Promise<any> {
+  static async setActiveSolarPower(
+    id: string,
+    activeW: number,
+  ): Promise<SetActiveSolarPowerResult> {
     const solarArray = await SolarArrayDB.get(id);
     if (!solarArray) {
       throw new Error("Solar array does not exist");
@@ -44,7 +62,7 @@ export class SolarArrayController {
     const newPower = Math.min(maxW, Math.max(0, activeW));
     await EventLogDB.log(`SET solar array ${id}, power ${newPower} W`);
     await SolarArrayDB.update(id, {activeW: newPower});
-    return {
+    return <SetActiveSolarPowerResult>{
       activeW: newPower,
       solarArray: await SolarArrayDB.get(id),
     };
@@ -74,7 +92,11 @@ export class SolarArrayController {
    * @param {number} maxWh Maximum energy to take.
    * @param {string} solarToken Solar token.
    */
-  static async takeSolarPower(id: string, maxWh: number, solarToken: string): Promise<any> {
+  static async takeSolarPower(
+    id: string,
+    maxWh: number,
+    solarToken: string,
+  ): Promise<TakeSolarPowerResult> {
     // Calculate new values.
     const newSolarToken = uuidv4();
     const now = firestore.Timestamp.now();
@@ -124,7 +146,7 @@ export class SolarArrayController {
       connectionTimeSeconds: connectionTimeSeconds,
       expireTimeUtcSeconds: newExpireTimeSeconds,
     });
-    return {
+    return <TakeSolarPowerResult>{
       solarToken: newSolarToken,
       expireTimeUtcSeconds: newExpireTimeSeconds,
       energyWh: energyWh,

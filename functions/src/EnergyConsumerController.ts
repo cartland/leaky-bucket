@@ -4,6 +4,21 @@ import {v4 as uuidv4} from "uuid";
 import {EventLogDB} from "./data/EventLogDB";
 import {EnergyConsumer, EnergyConsumerDB} from "./data/EnergyConsumerDB";
 
+interface SetActivePowerConsumptionResult {
+  activeW?: number,
+  energyConsumer?: EnergyConsumer,
+}
+
+interface TakePowerResult {
+  powerToken?: string,
+  expireTimeUtcSeconds?: number,
+  energyWh?: number,
+  powerDurationHours?: number,
+  activeW?: number,
+  note?: string,
+  solarArray?: EnergyConsumer,
+}
+
 /**
  * Solar array controller.
  */
@@ -35,7 +50,10 @@ export class EnergyConsumerController {
    * @param {string} id
    * @param {number} activeW
    */
-  static async setActivePowerConsumption(id: string, activeW: number): Promise<any> {
+  static async setActivePowerConsumption(
+    id: string,
+    activeW: number,
+  ): Promise<SetActivePowerConsumptionResult> {
     const energyConsumer = await EnergyConsumerDB.get(id);
     if (!energyConsumer) {
       throw new Error("Energy consumer does not exist");
@@ -44,7 +62,7 @@ export class EnergyConsumerController {
     const newPower = Math.min(maxW, Math.max(0, activeW));
     await EventLogDB.log(`SET energy consumer ${id}, power ${newPower} W`);
     await EnergyConsumerDB.update(id, {activeW: newPower});
-    return {
+    return <SetActivePowerConsumptionResult>{
       activeW: newPower,
       energyConsumer: await EnergyConsumerDB.get(id),
     };
@@ -74,7 +92,7 @@ export class EnergyConsumerController {
    * @param {number} maxWh Maximum energy to take.
    * @param {string} powerToken Power token.
    */
-  static async takePower(id: string, maxWh: number, powerToken: string): Promise<any> {
+  static async takePower(id: string, maxWh: number, powerToken: string): Promise<TakePowerResult> {
     // Calculate new values.
     const newPowerToken = uuidv4();
     const now = firestore.Timestamp.now();
@@ -124,7 +142,7 @@ export class EnergyConsumerController {
       connectionTimeSeconds: connectionTimeSeconds,
       expireTimeUtcSeconds: newExpireTimeSeconds,
     });
-    return {
+    return <TakePowerResult>{
       powerToken: newPowerToken,
       expireTimeUtcSeconds: newExpireTimeSeconds,
       energyWh: energyWh,

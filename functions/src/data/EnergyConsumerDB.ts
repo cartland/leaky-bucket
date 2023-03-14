@@ -45,7 +45,7 @@ export class EnergyConsumerDB {
    * @param {object} data Fields to be updated.
    * @return {Promise<any>} Update metadata.
    */
-  static async update(id: string, data: EnergyConsumer): Promise<any> {
+  static async update(id: string, data: EnergyConsumer): Promise<firestore.WriteResult> {
     return EnergyConsumerDB.ref().doc(id).update(data);
   }
 

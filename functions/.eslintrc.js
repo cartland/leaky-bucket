@@ -32,4 +32,12 @@ module.exports = {
       "code": 100,
     }],
   },
+  overrides: [
+    {
+      "files": ["index.ts"],
+      "rules": {
+        "max-len": ["off"], // Ignore line lengths in index.ts
+      },
+    },
+  ],
 };
