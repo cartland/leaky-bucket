@@ -1,8 +1,8 @@
 import * as firebase from "firebase-admin";
 
-import {BatteryDB} from "./data/Battery";
-import {EventLogDB} from "./data/EventLog";
-import {SolarArrayDB} from "./data/SolarArray";
+import {BatteryDB} from "./data/BatteryDB";
+import {EventLogDB} from "./data/EventLogDB";
+import {SolarArrayDB} from "./data/SolarArrayDB";
 
 import {SolarArrayController} from "./SolarArrayController";
 

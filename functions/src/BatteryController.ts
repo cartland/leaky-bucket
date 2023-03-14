@@ -1,5 +1,5 @@
-import {EventLogDB} from "./data/EventLog";
-import {BatteryDB} from "./data/Battery";
+import {EventLogDB} from "./data/EventLogDB";
+import {BatteryDB} from "./data/BatteryDB";
 
 /**
  * Control battery.

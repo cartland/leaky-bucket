@@ -1,8 +1,8 @@
 import * as firebase from "firebase-admin";
 
-import {BatteryDB} from "./data/Battery";
-import {EnergyConsumerDB} from "./data/EnergyConsumer";
-import {EventLogDB} from "./data/EventLog";
+import {BatteryDB} from "./data/BatteryDB";
+import {EnergyConsumerDB} from "./data/EnergyConsumerDB";
+import {EventLogDB} from "./data/EventLogDB";
 import {EnergyConsumerController} from "./EnergyConsumerController";
 
 /**

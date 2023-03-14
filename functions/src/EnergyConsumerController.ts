@@ -1,8 +1,8 @@
 import * as firestore from "firebase-admin/firestore";
 import {v4 as uuidv4} from "uuid";
 
-import {EventLogDB} from "./data/EventLog";
-import {EnergyConsumerDB} from "./data/EnergyConsumer";
+import {EventLogDB} from "./data/EventLogDB";
+import {EnergyConsumerDB} from "./data/EnergyConsumerDB";
 
 /**
  * Solar array controller.
