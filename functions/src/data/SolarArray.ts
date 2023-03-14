@@ -24,8 +24,8 @@ export class SolarArray {
   }
 
   /**
-   * @param {string} id ID of battery.
-   * @return {Promise<any>} Data for battery.
+   * @param {string} id ID of solar array.
+   * @return {Promise<any>} Data for solar array.
    */
   static async get(id: string): Promise<any> {
     return firebase.app().firestore().collection("SOLARARRAY").doc(id).get().then((result) => {

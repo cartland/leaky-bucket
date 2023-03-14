@@ -11,7 +11,7 @@ export class SolarArrayController {
   /**
    * Create a new solar array.
    *
-   * @param {number} maxW Battery capacity.
+   * @param {number} maxW Maximum solar power.
    */
   static async newSolarArray(maxW: number): Promise<any> {
     const id = await SolarArray.create();
@@ -36,16 +36,15 @@ export class SolarArrayController {
    * @param {number} activeW
    */
   static async setActiveSolarPower(id: string, activeW: number): Promise<any> {
-    const solarArray = await SolarArray.get(id as string);
+    const solarArray = await SolarArray.get(id);
     const newPower = Math.min(solarArray.maxW, Math.max(0, activeW));
-    await EventLog.log(`SET solar array ${solarArray.id}, power ${newPower} W`);
-    await SolarArray.update(solarArray.id, {activeW: newPower});
+    await EventLog.log(`SET solar array ${id}, power ${newPower} W`);
+    await SolarArray.update(id, {activeW: newPower});
     return {
       activeW: newPower,
-      solarArray: await SolarArray.get(solarArray.id),
+      solarArray: await SolarArray.get(id),
     };
   }
-
 
   /**
    * Attempt to take energy from solar array.
