@@ -33,14 +33,18 @@ export class SolarBatteryChargeController {
     if (snapshot.empty) {
       return true;
     }
+    let allSuccess = true;
     await snapshot.forEach(async (doc) => {
       const batteryId = doc.data().connectedBatteryId;
       const solarId = doc.id;
       if (batteryId) {
-        SolarBatteryChargeController.solarChargeBattery(batteryId, solarId);
+        const success = await SolarBatteryChargeController.solarChargeBattery(batteryId, solarId);
+        if (!success) {
+          allSuccess = false;
+        }
       }
     });
-    return true;
+    return allSuccess;
   }
 
   /**
@@ -51,8 +55,11 @@ export class SolarBatteryChargeController {
    * @param {string} batteryId Battery will attempt to charge to maximum capacity.
    * @param {string} solarId Solar array that will handle the request for power.
    */
-  static async solarChargeBattery(batteryId: string, solarId: string) {
+  static async solarChargeBattery(batteryId: string, solarId: string): Promise<boolean> {
     const battery = await BatteryDB.get(batteryId);
+    if (!battery) {
+      return false;
+    }
 
     const oldCharge = (!battery.WhCharge) ? 0 : battery.WhCharge;
     const WhCapacity = (!battery.WhCapacity) ? 0 : battery.WhCapacity;
@@ -71,5 +78,6 @@ export class SolarBatteryChargeController {
       WhCharge: newCharge,
       solarToken: newSolarToken,
     });
+    return true;
   }
 }

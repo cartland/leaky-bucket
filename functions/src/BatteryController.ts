@@ -1,5 +1,5 @@
 import {EventLogDB} from "./data/EventLogDB";
-import {BatteryDB} from "./data/BatteryDB";
+import {Battery, BatteryDB} from "./data/BatteryDB";
 
 /**
  * Control battery.
@@ -10,9 +10,9 @@ export class BatteryController {
    *
    * @param {number} WhCapacity Battery capacity.
    */
-  static async newBattery(WhCapacity: number): Promise<any> {
+  static async newBattery(WhCapacity: number): Promise<Battery | undefined> {
     const id = await BatteryDB.create();
-    await BatteryDB.update(id, {id: id, WhCapacity: WhCapacity});
+    await BatteryDB.update(id, <Battery>{id: id, WhCapacity: WhCapacity});
     await EventLogDB.log(`CREATED new battery with ID ${id} and capacity ${WhCapacity} Wh`);
     return await BatteryDB.get(id);
   }
@@ -22,7 +22,7 @@ export class BatteryController {
    *
    * @param {string} id
    */
-  static async getBattery(id: string): Promise<any> {
+  static async getBattery(id: string): Promise<Battery | undefined> {
     return await BatteryDB.get(id);
   }
 
@@ -34,15 +34,19 @@ export class BatteryController {
    */
   static async chargeBattery(id: string, addWh: number): Promise<any> {
     const battery = await BatteryDB.get(id);
-    const oldCharge = (!battery.WhCharge) ? 0 : battery.WhCharge;
-    const newCharge = Math.min(battery.WhCapacity, oldCharge + addWh);
+    if (!battery) {
+      throw new Error("Battery does not exist");
+    }
+    const oldCharge = (!battery?.WhCharge) ? 0 : battery.WhCharge;
+    const WhCapacity = (!battery?.WhCapacity) ? 0 : battery.WhCapacity;
+    const newCharge = Math.min(WhCapacity, oldCharge + addWh);
     const change = newCharge - oldCharge;
 
-    await EventLogDB.log(`CHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
-    await BatteryDB.update(battery.id, {WhCharge: newCharge});
+    await EventLogDB.log(`CHARGE battery ${id}, ${change} Wh, new charge ${newCharge} Wh`);
+    await BatteryDB.update(id, <Battery>{WhCharge: newCharge});
     return {
       WhChange: change,
-      battery: await BatteryDB.get(battery.id),
+      battery: await BatteryDB.get(id),
     };
   }
 
@@ -54,14 +58,17 @@ export class BatteryController {
    */
   static async dischargeBattery(id: string, consumeWh: number): Promise<any> {
     const battery = await BatteryDB.get(id);
-    const oldCharge = (!battery.WhCharge) ? 0 : battery.WhCharge;
+    if (!battery) {
+      throw new Error("Battery does not exist");
+    }
+    const oldCharge = (!battery?.WhCharge) ? 0 : battery.WhCharge;
     const newCharge = Math.max(0, oldCharge - consumeWh);
     const change = newCharge - oldCharge;
-    await EventLogDB.log(`DISCHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
-    await BatteryDB.update(battery.id, {WhCharge: newCharge});
+    await EventLogDB.log(`DISCHARGE battery ${id}, ${change} Wh, new charge ${newCharge} Wh`);
+    await BatteryDB.update(id, {WhCharge: newCharge});
     return {
       WhChange: change,
-      battery: await BatteryDB.get(battery.id),
+      battery: await BatteryDB.get(id),
     };
   }
 }

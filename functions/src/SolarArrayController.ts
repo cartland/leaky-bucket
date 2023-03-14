@@ -2,7 +2,7 @@ import * as firestore from "firebase-admin/firestore";
 import {v4 as uuidv4} from "uuid";
 
 import {EventLogDB} from "./data/EventLogDB";
-import {SolarArrayDB} from "./data/SolarArrayDB";
+import {SolarArray, SolarArrayDB} from "./data/SolarArrayDB";
 
 /**
  * Solar array controller.
@@ -13,7 +13,7 @@ export class SolarArrayController {
    *
    * @param {number} maxW Maximum solar power.
    */
-  static async newSolarArray(maxW: number): Promise<any> {
+  static async newSolarArray(maxW: number): Promise<SolarArray | undefined> {
     const id = await SolarArrayDB.create();
     await SolarArrayDB.update(id, {id: id, maxW: maxW});
     await EventLogDB.log(`CREATED new solar array with ID ${id} and max power ${maxW} W`);
@@ -25,7 +25,7 @@ export class SolarArrayController {
    *
    * @param {string} id
    */
-  static async getSolarArray(id: string): Promise<any> {
+  static async getSolarArray(id: string): Promise<SolarArray | undefined> {
     return await SolarArrayDB.get(id);
   }
 
@@ -37,7 +37,11 @@ export class SolarArrayController {
    */
   static async setActiveSolarPower(id: string, activeW: number): Promise<any> {
     const solarArray = await SolarArrayDB.get(id);
-    const newPower = Math.min(solarArray.maxW, Math.max(0, activeW));
+    if (!solarArray) {
+      throw new Error("Solar array does not exist");
+    }
+    const maxW = (!solarArray?.maxW) ? 0 : solarArray.maxW;
+    const newPower = Math.min(maxW, Math.max(0, activeW));
     await EventLogDB.log(`SET solar array ${id}, power ${newPower} W`);
     await SolarArrayDB.update(id, {activeW: newPower});
     return {
@@ -77,21 +81,23 @@ export class SolarArrayController {
     const connectionTimeSeconds = now.seconds;
     const expireDurationSeconds = 10 * 60; // 10 miutes.
     const newExpireTimeSeconds = connectionTimeSeconds + expireDurationSeconds;
-
     // Calculate potential energy delivered.
     const solarArray = await SolarArrayDB.get(id);
-    const powerDurationHours = (connectionTimeSeconds - solarArray.connectionTimeSeconds) / (60.0 * 60.0);
-    const activeW = (!solarArray.activeW) ? 0 : solarArray.activeW;
-    let energyWh = activeW * powerDurationHours;
+    if (!solarArray) {
+      throw new Error("Solar array does not exist");
+    }
+    const activeW = (!solarArray?.activeW) ? 0 : solarArray.activeW;
     let note = "";
-
+    let powerDurationHours = 0.0;
+    let energyWh = 0.0;
+    if (solarArray?.connectionTimeSeconds) {
+      const oldConnectionTimeSeconds = solarArray.connectionTimeSeconds;
+      powerDurationHours = (connectionTimeSeconds - oldConnectionTimeSeconds) / (60.0 * 60.0);
+      energyWh = activeW * powerDurationHours;
+    }
     // Constrain energy delivered.
     const providedToken = solarToken;
-    const oldToken = solarArray.solarToken;
-    if (connectionTimeSeconds > solarArray.expireTimeUtcSeconds) {
-      energyWh = 0; // Expired.
-      note = "Disconnected. Connection expired.";
-    }
+    const oldToken = solarArray?.solarToken;
     if (!oldToken) {
       energyWh = 0; // No old token.
       note = "Turning on solar array (array was not online)";
@@ -101,14 +107,19 @@ export class SolarArrayController {
     } else if (providedToken != oldToken) {
       energyWh = 0; // Mismatched token.
       note = "Bad solar array connection (wrong token)";
+    } else if (!solarArray?.expireTimeUtcSeconds) {
+      energyWh = 0; // No expire time found.
+      note = "Cannot deliver power without known expiration time.";
+    } else if (connectionTimeSeconds > solarArray.expireTimeUtcSeconds) {
+      energyWh = 0; // Expired.
+      note = "Disconnected. Connection expired.";
     }
-    energyWh = Math.min(energyWh, maxWh);
-
-    await EventLogDB.log(`TAKE solar array ${solarArray.id}, energy ${energyWh} Wh, ` +
+    energyWh = Math.min(energyWh, maxWh); // Constrain maximum energy.
+    await EventLogDB.log(`TAKE solar array ${id}, energy ${energyWh} Wh, ` +
       `power ${activeW} W, duration ${powerDurationHours} h, ` +
       `provided token ${providedToken}, old token ${oldToken}, new token ${newSolarToken}, ` +
       `connection time ${connectionTimeSeconds} s, expire time ${newExpireTimeSeconds} s`);
-    await SolarArrayDB.update(solarArray.id, {
+    await SolarArrayDB.update(id, {
       solarToken: newSolarToken,
       connectionTimeSeconds: connectionTimeSeconds,
       expireTimeUtcSeconds: newExpireTimeSeconds,
@@ -120,7 +131,7 @@ export class SolarArrayController {
       powerDurationHours: powerDurationHours,
       activeW: activeW,
       note: note,
-      solarArray: await SolarArrayDB.get(solarArray.id),
+      solarArray: await SolarArrayDB.get(id),
     };
   }
 }

@@ -52,6 +52,9 @@ export class ConsumeBatteryController {
    */
   static async consumeEnergyFromBattery(energyConsumerId: string, batteryId: string) {
     const battery = await BatteryDB.get(batteryId);
+    if (!battery) {
+      throw new Error("Battery does not exist");
+    }
 
     const oldChargeWh = (!battery.WhCharge) ? 0 : battery.WhCharge;
     const maxEnergyRequestedWh = oldChargeWh;

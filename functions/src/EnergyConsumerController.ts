@@ -2,7 +2,7 @@ import * as firestore from "firebase-admin/firestore";
 import {v4 as uuidv4} from "uuid";
 
 import {EventLogDB} from "./data/EventLogDB";
-import {EnergyConsumerDB} from "./data/EnergyConsumerDB";
+import {EnergyConsumer, EnergyConsumerDB} from "./data/EnergyConsumerDB";
 
 /**
  * Solar array controller.
@@ -13,7 +13,7 @@ export class EnergyConsumerController {
    *
    * @param {number} maxW Maximum energy consumer power.
    */
-  static async newEnergyConsumer(maxW: number): Promise<any> {
+  static async newEnergyConsumer(maxW: number): Promise<EnergyConsumer | undefined> {
     const id = await EnergyConsumerDB.create();
     await EnergyConsumerDB.update(id, {id: id, maxW: maxW});
     await EventLogDB.log(`CREATED new energy consumer with ID ${id} and max power ${maxW} W`);
@@ -25,7 +25,7 @@ export class EnergyConsumerController {
    *
    * @param {string} id
    */
-  static async getEnergyConsumer(id: string): Promise<any> {
+  static async getEnergyConsumer(id: string): Promise<EnergyConsumer | undefined> {
     return await EnergyConsumerDB.get(id);
   }
 
@@ -37,7 +37,11 @@ export class EnergyConsumerController {
    */
   static async setActivePowerConsumption(id: string, activeW: number): Promise<any> {
     const energyConsumer = await EnergyConsumerDB.get(id);
-    const newPower = Math.min(energyConsumer.maxW, Math.max(0, activeW));
+    if (!energyConsumer) {
+      throw new Error("Energy consumer does not exist");
+    }
+    const maxW = (!energyConsumer?.maxW) ? 0 : energyConsumer.maxW;
+    const newPower = Math.min(maxW, Math.max(0, activeW));
     await EventLogDB.log(`SET energy consumer ${id}, power ${newPower} W`);
     await EnergyConsumerDB.update(id, {activeW: newPower});
     return {
@@ -77,33 +81,40 @@ export class EnergyConsumerController {
     const connectionTimeSeconds = now.seconds;
     const expireDurationSeconds = 10 * 60; // 10 miutes.
     const newExpireTimeSeconds = connectionTimeSeconds + expireDurationSeconds;
-
     // Calculate potential energy delivered.
     const energyConsumer = await EnergyConsumerDB.get(id);
-    const powerDurationHours = (connectionTimeSeconds - energyConsumer.connectionTimeSeconds) / (60.0 * 60.0);
-    const activeW = (!energyConsumer.activeW) ? 0 : energyConsumer.activeW;
-    let energyWh = activeW * powerDurationHours;
+    if (!energyConsumer) {
+      throw new Error("Energy consumer does not exist");
+    }
+    const activeW = (!energyConsumer?.activeW) ? 0 : energyConsumer.activeW;
     let note = "";
-
+    let powerDurationHours = 0.0;
+    let energyWh = 0.0;
+    if (energyConsumer?.connectionTimeSeconds) {
+      const oldConnectionTimeSeconds = energyConsumer.connectionTimeSeconds;
+      powerDurationHours = (connectionTimeSeconds - oldConnectionTimeSeconds) / (60.0 * 60.0);
+      energyWh = activeW * powerDurationHours;
+    }
     // Constrain energy delivered.
     const providedToken = powerToken;
-    const oldToken = energyConsumer.powerToken;
-    if (connectionTimeSeconds > energyConsumer.expireTimeUtcSeconds) {
+    const oldToken = energyConsumer?.powerToken;
+    if (!oldToken) {
+      energyWh = 0; // No old token.
+      note = "Turning on solar array (array was not online)";
+    } else if (!providedToken) {
+      energyWh = 0; // No token provided.
+      note = "New solar array connection (no token)";
+    } else if (providedToken != oldToken) {
+      energyWh = 0; // Mismatched token.
+      note = "Bad solar array connection (wrong token)";
+    } else if (!energyConsumer?.expireTimeUtcSeconds) {
+      energyWh = 0; // No expire time found.
+      note = "Cannot deliver power without known expiration time.";
+    } else if (connectionTimeSeconds > energyConsumer.expireTimeUtcSeconds) {
       energyWh = 0; // Expired.
       note = "Disconnected. Connection expired.";
     }
-    if (!oldToken) {
-      energyWh = 0; // No old token.
-      note = "Connecting energy consumer (consumer was not online)";
-    } else if (!providedToken) {
-      energyWh = 0; // No token provided.
-      note = "New energy consumer connection (no token)";
-    } else if (providedToken != oldToken) {
-      energyWh = 0; // Mismatched token.
-      note = "Bad energy consumer connection (wrong token)";
-    }
-    energyWh = Math.min(energyWh, maxWh);
-
+    energyWh = Math.min(energyWh, maxWh); // Constrain maximum energy.
     await EventLogDB.log(`TAKE power for energy consumer ${id}, energy ${energyWh} Wh, ` +
       `power ${activeW} W, duration ${powerDurationHours} h, ` +
       `provided token ${providedToken}, old token ${oldToken}, new token ${newPowerToken}, ` +
