@@ -42,7 +42,7 @@ export class EnergyConsumerController {
     await EnergyConsumer.update(id, {activeW: newPower});
     return {
       activeW: newPower,
-      solarArray: await EnergyConsumer.get(id),
+      energyConsumer: await EnergyConsumer.get(id),
     };
   }
 
@@ -75,7 +75,7 @@ export class EnergyConsumerController {
     const newPowerToken = uuidv4();
     const now = firestore.Timestamp.now();
     const connectionTimeSeconds = now.seconds;
-    const expireDurationSeconds = 10 * 60;
+    const expireDurationSeconds = 10 * 60; // 10 miutes.
     const newExpireTimeSeconds = connectionTimeSeconds + expireDurationSeconds;
 
     // Calculate potential energy delivered.

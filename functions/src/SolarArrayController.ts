@@ -75,7 +75,7 @@ export class SolarArrayController {
     const newSolarToken = uuidv4();
     const now = firestore.Timestamp.now();
     const connectionTimeSeconds = now.seconds;
-    const expireDurationSeconds = 10 * 60;
+    const expireDurationSeconds = 10 * 60; // 10 miutes.
     const newExpireTimeSeconds = connectionTimeSeconds + expireDurationSeconds;
 
     // Calculate potential energy delivered.

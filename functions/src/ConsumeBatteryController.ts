@@ -64,7 +64,7 @@ export class ConsumeBatteryController {
     const newCharge = Math.max(0, oldChargeWh - energyTakenWh);
     const energyTakenFromBatteryWh = oldChargeWh - newCharge; // Should match energy taken.
 
-    await EventLog.log(`CONSUME energy from ${batteryId}, ${energyTakenFromBatteryWh} Wh, new charge ${newCharge} Wh, ` +
+    await EventLog.log(`CONSUME energy from battery ${batteryId}, ${energyTakenFromBatteryWh} Wh, new charge ${newCharge} Wh, ` +
       `to energy consumer ${energyConsumerId}, using power token ${powerToken}, new power token ${newPowerToken}`);
     await Battery.update(batteryId, {
       WhCharge: newCharge,
