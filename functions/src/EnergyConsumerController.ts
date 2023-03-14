@@ -1,8 +1,8 @@
 import * as firestore from "firebase-admin/firestore";
 import {v4 as uuidv4} from "uuid";
 
-import {EventLog} from "./data/EventLog";
-import {EnergyConsumer} from "./data/EnergyConsumer";
+import {EventLogDB} from "./data/EventLog";
+import {EnergyConsumerDB} from "./data/EnergyConsumer";
 
 /**
  * Solar array controller.
@@ -14,10 +14,10 @@ export class EnergyConsumerController {
    * @param {number} maxW Maximum energy consumer power.
    */
   static async newEnergyConsumer(maxW: number): Promise<any> {
-    const id = await EnergyConsumer.create();
-    await EnergyConsumer.update(id, {id: id, maxW: maxW});
-    await EventLog.log(`CREATED new energy consumer with ID ${id} and max power ${maxW} W`);
-    return await EnergyConsumer.get(id);
+    const id = await EnergyConsumerDB.create();
+    await EnergyConsumerDB.update(id, {id: id, maxW: maxW});
+    await EventLogDB.log(`CREATED new energy consumer with ID ${id} and max power ${maxW} W`);
+    return await EnergyConsumerDB.get(id);
   }
 
   /**
@@ -26,7 +26,7 @@ export class EnergyConsumerController {
    * @param {string} id
    */
   static async getEnergyConsumer(id: string): Promise<any> {
-    return await EnergyConsumer.get(id);
+    return await EnergyConsumerDB.get(id);
   }
 
   /**
@@ -36,13 +36,13 @@ export class EnergyConsumerController {
    * @param {number} activeW
    */
   static async setActivePowerConsumption(id: string, activeW: number): Promise<any> {
-    const energyConsumer = await EnergyConsumer.get(id);
+    const energyConsumer = await EnergyConsumerDB.get(id);
     const newPower = Math.min(energyConsumer.maxW, Math.max(0, activeW));
-    await EventLog.log(`SET energy consumer ${id}, power ${newPower} W`);
-    await EnergyConsumer.update(id, {activeW: newPower});
+    await EventLogDB.log(`SET energy consumer ${id}, power ${newPower} W`);
+    await EnergyConsumerDB.update(id, {activeW: newPower});
     return {
       activeW: newPower,
-      energyConsumer: await EnergyConsumer.get(id),
+      energyConsumer: await EnergyConsumerDB.get(id),
     };
   }
 
@@ -79,7 +79,7 @@ export class EnergyConsumerController {
     const newExpireTimeSeconds = connectionTimeSeconds + expireDurationSeconds;
 
     // Calculate potential energy delivered.
-    const energyConsumer = await EnergyConsumer.get(id);
+    const energyConsumer = await EnergyConsumerDB.get(id);
     const powerDurationHours = (connectionTimeSeconds - energyConsumer.connectionTimeSeconds) / (60.0 * 60.0);
     const activeW = (!energyConsumer.activeW) ? 0 : energyConsumer.activeW;
     let energyWh = activeW * powerDurationHours;
@@ -104,11 +104,11 @@ export class EnergyConsumerController {
     }
     energyWh = Math.min(energyWh, maxWh);
 
-    await EventLog.log(`TAKE power for energy consumer ${id}, energy ${energyWh} Wh, ` +
+    await EventLogDB.log(`TAKE power for energy consumer ${id}, energy ${energyWh} Wh, ` +
       `power ${activeW} W, duration ${powerDurationHours} h, ` +
       `provided token ${providedToken}, old token ${oldToken}, new token ${newPowerToken}, ` +
       `connection time ${connectionTimeSeconds} s, expire time ${newExpireTimeSeconds} s`);
-    await EnergyConsumer.update(id, {
+    await EnergyConsumerDB.update(id, {
       powerToken: newPowerToken,
       connectionTimeSeconds: connectionTimeSeconds,
       expireTimeUtcSeconds: newExpireTimeSeconds,
@@ -120,7 +120,7 @@ export class EnergyConsumerController {
       powerDurationHours: powerDurationHours,
       activeW: activeW,
       note: note,
-      solarArray: await EnergyConsumer.get(id),
+      solarArray: await EnergyConsumerDB.get(id),
     };
   }
 }

@@ -3,7 +3,7 @@ import * as firebase from "firebase-admin";
 /**
  * Battery database functions.
  */
-export class EnergyConsumer {
+export class EnergyConsumerDB {
   /**
    * Create a new energy consumer.
    * @return {Promise<string>} ID of energy consumer.

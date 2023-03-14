@@ -4,7 +4,7 @@ import * as firestore from "firebase-admin/firestore";
 /**
  * Log events.
  */
-export class EventLog {
+export class EventLogDB {
   /**
    * Record critical events in a log.
    *

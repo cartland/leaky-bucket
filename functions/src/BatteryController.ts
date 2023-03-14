@@ -1,5 +1,5 @@
-import {EventLog} from "./data/EventLog";
-import {Battery} from "./data/Battery";
+import {EventLogDB} from "./data/EventLog";
+import {BatteryDB} from "./data/Battery";
 
 /**
  * Control battery.
@@ -11,10 +11,10 @@ export class BatteryController {
    * @param {number} WhCapacity Battery capacity.
    */
   static async newBattery(WhCapacity: number): Promise<any> {
-    const id = await Battery.create();
-    await Battery.update(id, {id: id, WhCapacity: WhCapacity});
-    await EventLog.log(`CREATED new battery with ID ${id} and capacity ${WhCapacity} Wh`);
-    return await Battery.get(id);
+    const id = await BatteryDB.create();
+    await BatteryDB.update(id, {id: id, WhCapacity: WhCapacity});
+    await EventLogDB.log(`CREATED new battery with ID ${id} and capacity ${WhCapacity} Wh`);
+    return await BatteryDB.get(id);
   }
 
   /**
@@ -23,7 +23,7 @@ export class BatteryController {
    * @param {string} id
    */
   static async getBattery(id: string): Promise<any> {
-    return await Battery.get(id);
+    return await BatteryDB.get(id);
   }
 
   /**
@@ -33,16 +33,16 @@ export class BatteryController {
    * @param {number} addWh Energy to add.
    */
   static async chargeBattery(id: string, addWh: number): Promise<any> {
-    const battery = await Battery.get(id);
+    const battery = await BatteryDB.get(id);
     const oldCharge = (!battery.WhCharge) ? 0 : battery.WhCharge;
     const newCharge = Math.min(battery.WhCapacity, oldCharge + addWh);
     const change = newCharge - oldCharge;
 
-    await EventLog.log(`CHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
-    await Battery.update(battery.id, {WhCharge: newCharge});
+    await EventLogDB.log(`CHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
+    await BatteryDB.update(battery.id, {WhCharge: newCharge});
     return {
       WhChange: change,
-      battery: await Battery.get(battery.id),
+      battery: await BatteryDB.get(battery.id),
     };
   }
 
@@ -53,15 +53,15 @@ export class BatteryController {
    * @param {number} consumeWh Energy to consume.
    */
   static async dischargeBattery(id: string, consumeWh: number): Promise<any> {
-    const battery = await Battery.get(id);
+    const battery = await BatteryDB.get(id);
     const oldCharge = (!battery.WhCharge) ? 0 : battery.WhCharge;
     const newCharge = Math.max(0, oldCharge - consumeWh);
     const change = newCharge - oldCharge;
-    await EventLog.log(`DISCHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
-    await Battery.update(battery.id, {WhCharge: newCharge});
+    await EventLogDB.log(`DISCHARGE battery ${battery.id}, ${change} Wh, new charge ${newCharge} Wh`);
+    await BatteryDB.update(battery.id, {WhCharge: newCharge});
     return {
       WhChange: change,
-      battery: await Battery.get(battery.id),
+      battery: await BatteryDB.get(battery.id),
     };
   }
 }

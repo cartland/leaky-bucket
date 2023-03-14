@@ -1,8 +1,8 @@
 import * as firestore from "firebase-admin/firestore";
 import {v4 as uuidv4} from "uuid";
 
-import {EventLog} from "./data/EventLog";
-import {SolarArray} from "./data/SolarArray";
+import {EventLogDB} from "./data/EventLog";
+import {SolarArrayDB} from "./data/SolarArray";
 
 /**
  * Solar array controller.
@@ -14,10 +14,10 @@ export class SolarArrayController {
    * @param {number} maxW Maximum solar power.
    */
   static async newSolarArray(maxW: number): Promise<any> {
-    const id = await SolarArray.create();
-    await SolarArray.update(id, {id: id, maxW: maxW});
-    await EventLog.log(`CREATED new solar array with ID ${id} and max power ${maxW} W`);
-    return await SolarArray.get(id);
+    const id = await SolarArrayDB.create();
+    await SolarArrayDB.update(id, {id: id, maxW: maxW});
+    await EventLogDB.log(`CREATED new solar array with ID ${id} and max power ${maxW} W`);
+    return await SolarArrayDB.get(id);
   }
 
   /**
@@ -26,7 +26,7 @@ export class SolarArrayController {
    * @param {string} id
    */
   static async getSolarArray(id: string): Promise<any> {
-    return await SolarArray.get(id);
+    return await SolarArrayDB.get(id);
   }
 
   /**
@@ -36,13 +36,13 @@ export class SolarArrayController {
    * @param {number} activeW
    */
   static async setActiveSolarPower(id: string, activeW: number): Promise<any> {
-    const solarArray = await SolarArray.get(id);
+    const solarArray = await SolarArrayDB.get(id);
     const newPower = Math.min(solarArray.maxW, Math.max(0, activeW));
-    await EventLog.log(`SET solar array ${id}, power ${newPower} W`);
-    await SolarArray.update(id, {activeW: newPower});
+    await EventLogDB.log(`SET solar array ${id}, power ${newPower} W`);
+    await SolarArrayDB.update(id, {activeW: newPower});
     return {
       activeW: newPower,
-      solarArray: await SolarArray.get(id),
+      solarArray: await SolarArrayDB.get(id),
     };
   }
 
@@ -79,7 +79,7 @@ export class SolarArrayController {
     const newExpireTimeSeconds = connectionTimeSeconds + expireDurationSeconds;
 
     // Calculate potential energy delivered.
-    const solarArray = await SolarArray.get(id);
+    const solarArray = await SolarArrayDB.get(id);
     const powerDurationHours = (connectionTimeSeconds - solarArray.connectionTimeSeconds) / (60.0 * 60.0);
     const activeW = (!solarArray.activeW) ? 0 : solarArray.activeW;
     let energyWh = activeW * powerDurationHours;
@@ -104,11 +104,11 @@ export class SolarArrayController {
     }
     energyWh = Math.min(energyWh, maxWh);
 
-    await EventLog.log(`TAKE solar array ${solarArray.id}, energy ${energyWh} Wh, ` +
+    await EventLogDB.log(`TAKE solar array ${solarArray.id}, energy ${energyWh} Wh, ` +
       `power ${activeW} W, duration ${powerDurationHours} h, ` +
       `provided token ${providedToken}, old token ${oldToken}, new token ${newSolarToken}, ` +
       `connection time ${connectionTimeSeconds} s, expire time ${newExpireTimeSeconds} s`);
-    await SolarArray.update(solarArray.id, {
+    await SolarArrayDB.update(solarArray.id, {
       solarToken: newSolarToken,
       connectionTimeSeconds: connectionTimeSeconds,
       expireTimeUtcSeconds: newExpireTimeSeconds,
@@ -120,7 +120,7 @@ export class SolarArrayController {
       powerDurationHours: powerDurationHours,
       activeW: activeW,
       note: note,
-      solarArray: await SolarArray.get(solarArray.id),
+      solarArray: await SolarArrayDB.get(solarArray.id),
     };
   }
 }

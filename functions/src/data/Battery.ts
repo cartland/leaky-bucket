@@ -3,7 +3,7 @@ import * as firebase from "firebase-admin";
 /**
  * Battery database functions.
  */
-export class Battery {
+export class BatteryDB {
   /**
    * Create a new battery.
    * @return {Promise<string>} ID of new battery.

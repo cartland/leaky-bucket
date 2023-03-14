@@ -3,7 +3,7 @@ import * as firebase from "firebase-admin";
 /**
  * Battery database functions.
  */
-export class SolarArray {
+export class SolarArrayDB {
   /**
    * Create a new solar array.
    * @return {Promise<string>} ID of new solar array.
