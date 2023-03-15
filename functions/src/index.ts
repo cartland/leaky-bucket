@@ -1,13 +1,14 @@
 import * as firebase from "firebase-admin";
 import * as functions from "firebase-functions";
 
-import {BatteryController} from "./BatteryController";
-import {SolarBatteryChargeController} from "./SolarBatteryChargeController";
-import {SolarArrayController} from "./SolarArrayController";
-import {EnergyConsumerController} from "./EnergyConsumerController";
-import {ConsumeBatteryController} from "./ConsumeBatteryController";
-
 firebase.initializeApp();
+
+import {BatteryController} from "./controller/BatteryController";
+import {SolarArrayController} from "./controller/SolarArrayController";
+import {LoadController} from "./controller/LoadController";
+import {ConnectionController} from "./controller/ConnectionController";
+import {NodeType, PowerConnection} from "./data/PowerConnection";
+import {ChargeController} from "./controller/ChargeController";
 
 // BATTERY USAGE EXAMPLES
 
@@ -66,7 +67,7 @@ export const getBattery = functions.https.onRequest(async (request, response) =>
     response.status(404).send({error: "Missing parameter 'id'"});
     return;
   }
-  response.send(BatteryController.getBattery(request.query.id as string));
+  response.send(await BatteryController.getBattery(request.query.id as string));
 });
 
 /**
@@ -136,14 +137,6 @@ export const dischargeBattery = functions.https.onRequest(async (request, respon
 // curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActiveSolarPower\?activeW\=4000\&id\=NA5MiLuRJPbaIw954JEJ
 // {"activeW": 4000, "solarArray": {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 4000} }
 
-// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takeSolarPower\?maxWh\=4000\&id\=rJnbBUBaVJ4lFUsqRnki\&solarToken=\A
-
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/connectBatteryToSolarArray\?solarId\=rJnbBUBaVJ4lFUsqRnki\&batteryId\=MzeVxY0YYGQDS02PgePn
-// {"connectedBatteryId": "MzeVxY0YYGQDS02PgePn", "solarArray":
-//   {"maxW": 6800, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 4000, "connectedBatteryId": "MzeVxY0YYGQDS02PgePn"} }
-
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/chargeBatteriesWithSolarArrays
-
 /**
  * Create a new solar array with maximum power capacity. Generates a new ID.
  */
@@ -207,54 +200,16 @@ export const setActiveSolarPower = functions.https.onRequest(async (request, res
   response.send(await SolarArrayController.setActiveSolarPower(request.query.id as string, activeW));
 });
 
-/**
- * Attempt to take energy from solar array.
- *
- * Energy is delivered over time (multiple requests). The first request will always return 0 Wh.
- * Each response will contain a solar array token. Each token cannot be used more than once.
- * The token will have an expiration time. After the expiration, no energy can be withdrawn.
- * If a token is used before the expiration time, energy will be withdrawn.
- *
- * Energy (Wh) = Power (W) * Time Since Token Creation (h)
- *
- * takeSolarPower(no token)
- * -> Wh: 0, Token: A, Expires: 5 minutes
- * takeSolarPower(A)
- * -> Wh: 14, Token: B, Expires: 5 minutes
- * takeSolarPower(B)
- * -> Wh: 18, Token: C, Expires: 5 minutes
- * [Wait past expiration]
- * takeSolarPower(C)
- * -> Wh: 0, Token: D, Expires: 5 minutes
- */
-export const takeSolarPower = functions.https.onRequest(async (request, response) => {
-  if (request.method !== "POST") {
-    response.status(405).send({error: "HTTP method not allowed"});
-    return;
-  }
-  const id = request.query.id as string;
-  const maxWh = request.query.maxWh as string;
-  const solarToken = request.query.solarToken as string;
-  if (!id) {
-    response.status(404).send({error: "Missing parameter 'id'"});
-    return;
-  }
-  if (!maxWh) {
-    response.status(404).send({error: "Missing parameter 'maxWh'"});
-    return;
-  }
-  const maxWhFloat = parseFloat(maxWh);
-  if (Number.isNaN(maxWhFloat)) {
-    response.status(404).send({error: "'maxWh' must be a number"});
-    return;
-  }
-  if (maxWhFloat < 0) {
-    response.status(404).send({error: "'maxWh' must not be negative"});
-    return;
-  }
-  response.send(await SolarArrayController.takeSolarPower(id, maxWhFloat, solarToken));
-});
+// CONNECTION USAGE EXAMPLES
 
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/connectBatteryToSolarArray\?solarId\=rJnbBUBaVJ4lFUsqRnki\&batteryId\=MzeVxY0YYGQDS02PgePn
+// {"sourceId": "rJnbBUBaVJ4lFUsqRnki", "sourceType": "SOLAR", "sinkId": "MzeVxY0YYGQDS02PgePn", "id": "ZVBw5PwQgtR7Azw4evd5", "sinkType": "BATTERY"}%
+
+// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/exportConnectionGraph
+// {"nodes": [{"id": "Kc4M8vIvt6UTOsnbRjOp", "type": "BATTERY", "sourceType": "SOLAR", "sourceId": "z1WEwtSRajLlb12AzQo9", "sinkType": "", "sinkId": ""},
+// {"id": "z1WEwtSRajLlb12AzQo9", "type": "SOLAR", "sourceType": "", "sourceId": "", "sinkType": "BATTERY", "sinkId": "Kc4M8vIvt6UTOsnbRjOp"}]}
+
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/deliverPowerThroughConnections
 
 /**
  * Connect a battery to a solar array.
@@ -276,25 +231,39 @@ export const connectBatteryToSolarArray = functions.https.onRequest(async (reque
     response.status(404).send({error: "Missing parameter 'batteryId'"});
     return;
   }
-  response.send(await SolarBatteryChargeController.connectBatteryToSolarArray(batteryId, solarId));
+  const connection = <PowerConnection>{};
+  connection.sinkType = NodeType.BATTERY;
+  connection.sinkId = batteryId; // TODO: Delete connections with this sink ID.
+  connection.sourceType = NodeType.SOLAR;
+  connection.sourceId = solarId; // TODO: Delete connections with this source ID.
+  response.send(await ConnectionController.newConnection(connection));
 });
 
-export const chargeBatteriesWithSolarArrays = functions.https.onRequest(async (request, response) => {
+/**
+ * Export graph.
+ */
+export const exportConnectionGraph = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "GET") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  response.send(await ConnectionController.exportConnectionGraph());
+});
+
+export const deliverPowerThroughConnections = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
   }
-  const success = await SolarBatteryChargeController.solarChargeAllBatteries();
-  response.send({success: success});
+  response.send(await ChargeController.deliverPowerThroughConnections());
 });
 
-export const scheduleChargeBatteriesWithSolarArrays = functions.pubsub.
+export const scheduleRunPowerThroughConnections = functions.pubsub.
   schedule("every 5 minutes").onRun(async () => {
-    const success = await SolarBatteryChargeController.solarChargeAllBatteries();
-    console.log(`chargeBatteries sucess: ${success}`);
+    const success = await ChargeController.deliverPowerThroughConnections();
+    console.log(`success: ${success}`);
     return null;
   });
-
 
 // ENERGY CONSUMER USAGE EXAMPLES
 
@@ -306,15 +275,6 @@ export const scheduleChargeBatteriesWithSolarArrays = functions.pubsub.
 
 // curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActivePowerConsumption\?activeW\=500\&id\=NA5MiLuRJPbaIw954JEJ
 // {"activeW": 500, "energyConsumer": {"maxW": 1000, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 500} }
-
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/takePower\?maxWh\=200\&id\=NA5MiLuRJPbaIw954JEJ\&powerToken=\A
-
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/connectConsumerToBattery\?consumerId\=NA5MiLuRJPbaIw954JEJ\&batteryId\=MzeVxY0YYGQDS02PgePn
-// {"connectedBatteryId": "MzeVxY0YYGQDS02PgePn", "energyConsumer":
-//   {"maxW": 1000, "id": "NA5MiLuRJPbaIw954JEJ", "activeW": 500, "connectedBatteryId": "MzeVxY0YYGQDS02PgePn"} }
-
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/consumeEnergyFromAllBatteries
-
 
 /**
  * Create a new energy consumer.
@@ -337,7 +297,7 @@ export const newEnergyConsumer = functions.https.onRequest(async (request, respo
     response.status(404).send({error: "'maxW' must not be negative"});
     return;
   }
-  response.send(await EnergyConsumerController.newEnergyConsumer(maxW));
+  response.send(await LoadController.newLoad(maxW));
 });
 
 /**
@@ -352,7 +312,7 @@ export const getEnergyConsumer = functions.https.onRequest(async (request, respo
     response.status(404).send({error: "Missing parameter 'id'"});
     return;
   }
-  response.send(await EnergyConsumerController.getEnergyConsumer(request.query.id as string));
+  response.send(await LoadController.getEnergyConsumer(request.query.id as string));
 });
 
 /**
@@ -376,63 +336,13 @@ export const setActivePowerConsumption = functions.https.onRequest(async (reques
     response.status(404).send({error: "'activeW' must be a number"});
     return;
   }
-  response.send(await EnergyConsumerController.setActivePowerConsumption(request.query.id as string, activeW));
+  response.send(await LoadController.setActivePowerConsumption(request.query.id as string, activeW));
 });
 
 /**
- * Attempt to take energy from solar array.
- *
- * Energy is delivered over time (multiple requests). The first request will always return 0 Wh.
- * Each response will contain a solar array token. Each token cannot be used more than once.
- * The token will have an expiration time. After the expiration, no energy can be withdrawn.
- * If a token is used before the expiration time, energy will be withdrawn.
- *
- * Energy (Wh) = Power (W) * Time Since Token Creation (h)
- *
- * takeSolarPower(no token)
- * -> Wh: 0, Token: A, Expires: 5 minutes
- * takeSolarPower(A)
- * -> Wh: 14, Token: B, Expires: 5 minutes
- * takeSolarPower(B)
- * -> Wh: 18, Token: C, Expires: 5 minutes
- * [Wait past expiration]
- * takeSolarPower(C)
- * -> Wh: 0, Token: D, Expires: 5 minutes
+ * Connect a load to a battery.
  */
-export const takePower = functions.https.onRequest(async (request, response) => {
-  if (request.method !== "POST") {
-    response.status(405).send({error: "HTTP method not allowed"});
-    return;
-  }
-  const id = request.query.id as string;
-  const maxWh = request.query.maxWh as string;
-  const powerToken = request.query.powerToken as string;
-  if (!id) {
-    response.status(404).send({error: "Missing parameter 'id'"});
-    return;
-  }
-  if (!maxWh) {
-    response.status(404).send({error: "Missing parameter 'maxWh'"});
-    return;
-  }
-  const maxWhFloat = parseFloat(maxWh);
-  if (Number.isNaN(maxWhFloat)) {
-    response.status(404).send({error: "'maxWh' must be a number"});
-    return;
-  }
-  if (maxWhFloat < 0) {
-    response.status(404).send({error: "'maxWh' must not be negative"});
-    return;
-  }
-  response.send(await EnergyConsumerController.takePower(id, maxWhFloat, powerToken));
-});
-
-/**
- * Connect an energy consumer to a battery.
- *
- * An energy consumer can only be connected to 1 battery at a time.
- */
-export const connectConsumerToBattery = functions.https.onRequest(async (request, response) => {
+export const connectLoadToBattery = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
@@ -447,21 +357,10 @@ export const connectConsumerToBattery = functions.https.onRequest(async (request
     response.status(404).send({error: "Missing parameter 'batteryId'"});
     return;
   }
-  response.send(await ConsumeBatteryController.connectEnergyConsumerToBattery(consumerId, batteryId));
+  const connection = <PowerConnection>{};
+  connection.sinkType = NodeType.LOAD;
+  connection.sinkId = consumerId;
+  connection.sourceType = NodeType.BATTERY;
+  connection.sourceId = batteryId;
+  response.send(await ConnectionController.newConnection(connection));
 });
-
-export const consumeEnergyFromAllBatteries = functions.https.onRequest(async (request, response) => {
-  if (request.method !== "POST") {
-    response.status(405).send({error: "HTTP method not allowed"});
-    return;
-  }
-  const success = await ConsumeBatteryController.consumeEnergyFromAllBatteries();
-  response.send({success: success});
-});
-
-export const scheduleConsumeEnergyFromAllBatteries = functions.pubsub.
-  schedule("every 5 minutes").onRun(async () => {
-    const success = await ConsumeBatteryController.consumeEnergyFromAllBatteries();
-    console.log(`chargeBatteries sucess: ${success}`);
-    return null;
-  });
