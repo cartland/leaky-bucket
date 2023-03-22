@@ -267,19 +267,19 @@ export const scheduleRunPowerThroughConnections = functions.pubsub.
 
 // ENERGY CONSUMER USAGE EXAMPLES
 
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/newEnergyConsumer\?maxW\=1000
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/newLoad\?maxW\=1000
 // {"maxW": 1000, "id": "NA5MiLuRJPbaIw954JEJ"}
 
-// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/getEnergyConsumer\?id\=NA5MiLuRJPbaIw954JEJ
+// curl -X GET https://us-central1-leaky-bucket-caa70.cloudfunctions.net/getLoad\?id\=NA5MiLuRJPbaIw954JEJ
 // {"maxW": 1000, "id": "NA5MiLuRJPbaIw954JEJ"}
 
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setActivePowerConsumption\?activeW\=500\&id\=NA5MiLuRJPbaIw954JEJ
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setLoadPower\?activeW\=500\&id\=NA5MiLuRJPbaIw954JEJ
 // {"activeW": 500, "energyConsumer": {"maxW": 1000, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 500} }
 
 /**
  * Create a new energy consumer.
  */
-export const newEnergyConsumer = functions.https.onRequest(async (request, response) => {
+export const newLoad = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
@@ -303,7 +303,7 @@ export const newEnergyConsumer = functions.https.onRequest(async (request, respo
 /**
  * Get energy consumer info.
  */
-export const getEnergyConsumer = functions.https.onRequest(async (request, response) => {
+export const getLoad = functions.https.onRequest(async (request, response) => {
   if (request.method !== "GET") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
@@ -318,7 +318,7 @@ export const getEnergyConsumer = functions.https.onRequest(async (request, respo
 /**
  * Set active power consumption.
  */
-export const setActivePowerConsumption = functions.https.onRequest(async (request, response) => {
+export const setLoadPower = functions.https.onRequest(async (request, response) => {
   if (request.method !== "POST") {
     response.status(405).send({error: "HTTP method not allowed"});
     return;
@@ -347,9 +347,9 @@ export const connectLoadToBattery = functions.https.onRequest(async (request, re
     response.status(405).send({error: "HTTP method not allowed"});
     return;
   }
-  const consumerId = request.query.consumerId as string;
-  if (!consumerId) {
-    response.status(404).send({error: "Missing parameter 'consumerId'"});
+  const loadId = request.query.loadId as string;
+  if (!loadId) {
+    response.status(404).send({error: "Missing parameter 'loadId'"});
     return;
   }
   const batteryId = request.query.batteryId as string;
@@ -359,7 +359,7 @@ export const connectLoadToBattery = functions.https.onRequest(async (request, re
   }
   const connection = <PowerConnection>{};
   connection.sinkType = NodeType.LOAD;
-  connection.sinkId = consumerId;
+  connection.sinkId = loadId;
   connection.sourceType = NodeType.BATTERY;
   connection.sourceId = batteryId;
   response.send(await ConnectionController.newConnection(connection));

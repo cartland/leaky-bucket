@@ -11,6 +11,7 @@ import {Load, LOAD_DB} from "../data/Load";
 
 interface PowerStats {
   batteryChargedWithSolarCount: number,
+  batteryDischargedWithLoadCount: number,
 }
 /**
  * Control battery.
@@ -22,6 +23,7 @@ export class ChargeController {
   static async deliverPowerThroughConnections(): Promise<PowerStats> {
     const graph = await ConnectionController.createNodeGraphFromConnectionDatabase();
     let batteryChargedWithSolarCount = 0;
+    let batteryDischargedWithLoadCount = 0;
     await ConnectionController.visitGraphSinksFirst(
       graph, async (node: PowerNode): Promise<boolean> => {
         if (node.type == NodeType.BATTERY && node.source?.type == NodeType.SOLAR) {
@@ -47,13 +49,14 @@ export class ChargeController {
           }
           const powerToken = node.sourceConnection?.powerTransferMetadata?.powerToken || "";
           dischargeBatteryWithLoad(powerToken, loadSink, batterySource, connection);
-          batteryChargedWithSolarCount++;
+          batteryDischargedWithLoadCount++;
           return true;
         }
         return false;
       });
     const result = <PowerStats>{};
     result.batteryChargedWithSolarCount = batteryChargedWithSolarCount;
+    result.batteryDischargedWithLoadCount = batteryDischargedWithLoadCount;
     return result;
   }
 }
