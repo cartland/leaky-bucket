@@ -365,7 +365,7 @@ export const deliverPowerThroughConnections = functions.https.onRequest(async (r
 
 export const scheduleRunPowerThroughConnections = functions.pubsub.
   schedule("every 5 minutes").onRun(async () => {
-    const success = await ChargeController.deliverPowerThroughConnections();
-    console.log(`success: ${success}`);
+    const stats = await ChargeController.deliverPowerThroughConnections();
+    console.log(`PowerStats: ${stats}`);
     return null;
   });
