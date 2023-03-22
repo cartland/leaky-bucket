@@ -7,6 +7,7 @@ import {PowerTransferController} from "./PowerTransferController";
 import {Battery, BATTERY_DB} from "../data/Battery";
 import {SolarArray, SOLAR_ARRAY_DB} from "../data/SolarArray";
 import {NodeType, PowerConnection, PowerNode, TransferCapacity} from "../data/PowerConnection";
+import {Load, LOAD_DB} from "../data/Load";
 
 interface PowerStats {
   batteryChargedWithSolarCount: number,
@@ -33,6 +34,19 @@ export class ChargeController {
           }
           const powerToken = node.sourceConnection?.powerTransferMetadata?.powerToken || "";
           chargeBatteryWithSolar(powerToken, batterySink, solarSource, connection);
+          batteryChargedWithSolarCount++;
+          return true;
+        }
+        if (node.type == NodeType.LOAD && node.source?.type == NodeType.BATTERY) {
+          const loadSink = await LOAD_DB.read(node.id);
+          const batterySource = await BATTERY_DB.read(node.source.id);
+          const connection = node.sourceConnection;
+          if (!(loadSink && batterySource && connection)) {
+            console.error("Expecting a load, battery, and connection");
+            return false;
+          }
+          const powerToken = node.sourceConnection?.powerTransferMetadata?.powerToken || "";
+          dischargeBatteryWithLoad(powerToken, loadSink, batterySource, connection);
           batteryChargedWithSolarCount++;
           return true;
         }
@@ -86,6 +100,58 @@ async function chargeBatteryWithSolar(
   await EventLogDB.log(`TRANSFER energy with connection ${connection.id}, ` +
     `from solar ${solarSource.id}, ` +
     `to battery ${batterySink.id}, ` +
+    `transferred ${energyTransfer.energyTransferWh} Wh, ` +
+    `power ${energyTransfer.powerW} W, ` +
+    `duration ${energyTransfer.transferDurationHours} h, ` +
+    `used token ${powerToken}, ` +
+    `connection UTC time ${energyTransfer.metadata.connectionTimeUtcSeconds}, ` +
+    `connection UTC time ${energyTransfer.metadata.expireTimeUtcSeconds}, ` +
+    `new token ${[energyTransfer.metadata.powerToken]}`);
+}
+
+
+/**
+ * Charge the battery with solar using the connection.
+ *
+ * @param {string} powerToken
+ * @param {Load} loadSink
+ * @param {Battery} batterySource
+ * @param {PowerConnection} connection
+ */
+async function dischargeBatteryWithLoad(
+  powerToken: string,
+  loadSink: Load,
+  batterySource: Battery,
+  connection: PowerConnection,
+) {
+  if (!connection.id) {
+    console.error("Expected a connection ID");
+    return;
+  }
+  if (!batterySource.id) {
+    console.error("Expected battery to have an ID");
+    return;
+  }
+  const capacity = <TransferCapacity>{
+    powerW: Math.min(loadSink?.activeW || 0, Infinity),
+    energyWh: Math.min(Infinity, batterySource?.WhCharge || 0),
+  };
+  const energyTransfer = PowerTransferController.calculateEnergyTransfer(
+    connection.powerTransferMetadata,
+    firestore.Timestamp.now().seconds,
+    powerToken,
+    capacity,
+  );
+  // Charge battery.
+  await BatteryController.dischargeBattery(batterySource.id, energyTransfer.energyTransferWh);
+  // Save updated connection metadata.
+  await ConnectionController.updateConnectionPowerTransferMetadata(
+    connection.id,
+    energyTransfer.metadata,
+  );
+  await EventLogDB.log(`TRANSFER energy with connection ${connection.id}, ` +
+    `from battery ${batterySource.id}, ` +
+    `to load ${loadSink.id}, ` +
     `transferred ${energyTransfer.energyTransferWh} Wh, ` +
     `power ${energyTransfer.powerW} W, ` +
     `duration ${energyTransfer.transferDurationHours} h, ` +
