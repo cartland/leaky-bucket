@@ -209,8 +209,6 @@ export const setActiveSolarPower = functions.https.onRequest(async (request, res
 // {"nodes": [{"id": "Kc4M8vIvt6UTOsnbRjOp", "type": "BATTERY", "sourceType": "SOLAR", "sourceId": "z1WEwtSRajLlb12AzQo9", "sinkType": "", "sinkId": ""},
 // {"id": "z1WEwtSRajLlb12AzQo9", "type": "SOLAR", "sourceType": "", "sourceId": "", "sinkType": "BATTERY", "sinkId": "Kc4M8vIvt6UTOsnbRjOp"}]}
 
-// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/deliverPowerThroughConnections
-
 /**
  * Connect a battery to a solar array.
  *
@@ -250,22 +248,7 @@ export const exportConnectionGraph = functions.https.onRequest(async (request, r
   response.send(await ConnectionController.exportConnectionGraph());
 });
 
-export const deliverPowerThroughConnections = functions.https.onRequest(async (request, response) => {
-  if (request.method !== "POST") {
-    response.status(405).send({error: "HTTP method not allowed"});
-    return;
-  }
-  response.send(await ChargeController.deliverPowerThroughConnections());
-});
-
-export const scheduleRunPowerThroughConnections = functions.pubsub.
-  schedule("every 5 minutes").onRun(async () => {
-    const success = await ChargeController.deliverPowerThroughConnections();
-    console.log(`success: ${success}`);
-    return null;
-  });
-
-// ENERGY CONSUMER USAGE EXAMPLES
+// LOAD USAGE EXAMPLES
 
 // curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/newLoad\?maxW\=1000
 // {"maxW": 1000, "id": "NA5MiLuRJPbaIw954JEJ"}
@@ -274,7 +257,10 @@ export const scheduleRunPowerThroughConnections = functions.pubsub.
 // {"maxW": 1000, "id": "NA5MiLuRJPbaIw954JEJ"}
 
 // curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/setLoadPower\?activeW\=500\&id\=NA5MiLuRJPbaIw954JEJ
-// {"activeW": 500, "energyConsumer": {"maxW": 1000, "id": "rJnbBUBaVJ4lFUsqRnki", "activeW": 500} }
+// {"activeW": 500, "energyConsumer": {"maxW": 1000, "id": "NA5MiLuRJPbaIw954JEJ", "activeW": 500} }
+
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/connectLoadToBattery\?loadId\=NA5MiLuRJPbaIw954JEJ\&batteryId\=MzeVxY0YYGQDS02PgePn
+// {"sourceId": "MzeVxY0YYGQDS02PgePn", "sourceType": "BATTERY", "sinkId": "NA5MiLuRJPbaIw954JEJ", "id": "BtgYJX4bocGklKrmy1Yh", "sinkType": "LOAD"}%                                                                                                   ➜  leaky - bucket git: (main) ✗ curl - X POST http://127.0.0.1:5001/leaky-bucket-caa70/us-central1/deliverPowerThroughConnections
 
 /**
  * Create a new energy consumer.
@@ -364,3 +350,22 @@ export const connectLoadToBattery = functions.https.onRequest(async (request, re
   connection.sourceId = batteryId;
   response.send(await ConnectionController.newConnection(connection));
 });
+
+// DELIVER POWER
+
+// curl -X POST https://us-central1-leaky-bucket-caa70.cloudfunctions.net/deliverPowerThroughConnections
+
+export const deliverPowerThroughConnections = functions.https.onRequest(async (request, response) => {
+  if (request.method !== "POST") {
+    response.status(405).send({error: "HTTP method not allowed"});
+    return;
+  }
+  response.send(await ChargeController.deliverPowerThroughConnections());
+});
+
+export const scheduleRunPowerThroughConnections = functions.pubsub.
+  schedule("every 5 minutes").onRun(async () => {
+    const success = await ChargeController.deliverPowerThroughConnections();
+    console.log(`success: ${success}`);
+    return null;
+  });
